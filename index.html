@@ -1,1 +1,273 @@
-Hello World
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style> /* set the CSS */
+
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 2px;
+}
+
+.hidden {
+    display: none;
+}
+
+div.tooltip {
+    color: #222;
+    background-color: #fff;
+    padding: .5em;
+    text-shadow: #f5f5f5 0 1px 0;
+    border-radius: 2px;
+    opacity: 0.9;
+    position: absolute;
+}
+
+</style>
+<body>
+
+<!-- load the d3.js library -->    	
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script>
+
+//pour le hover
+var tooltip = d3.select('body').append('div')
+.attr('class', 'hidden tooltip');
+
+// set the dimensions and margins of the graph
+var margin = {top: 100, right: 100, bottom: 100, left: 100},
+    width = 800 - margin.left - margin.right,
+    height = 600 - margin.top - margin.bottom;
+
+var color = [];
+var xScale = 0, yScale = 0, dx = 0, dy = 0, xAxis = 0, yAxis = 0;
+
+//,Year,Month,DayofMonth,DayOfWeek,DepTime,CRSDepTime,ArrTime,CRSArrTime,UniqueCarrier,FlightNum,TailNum,ActualElapsedTime,CRSElapsedTime,AirTime,ArrDelay,DepDelay,Origin,Dest,Distance,TaxiIn,TaxiOut,Cancelled,CancellationCode,Diverted,CarrierDelay,WeatherDelay,NASDelay,SecurityDelay,LateAircraftDelay
+
+// append the svg obgect to the body of the page
+// appends a 'group' element to 'svg'
+// moves the 'group' element to the top left margin
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .call(d3.zoom().on("zoom", zoomFunction))
+    .append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+var toProcess = [];
+var json_companys = [];
+
+d3.csv("data.csv", function(data) {
+    //PARAMETRE A DEFINIR PAR SLIDER
+    var y_min = 2008, y_max = 2008, m_min = 1, m_max = 12, dm_min = 0, dm_max = 31;
+    
+    companys = {}
+    //Agregation de données par companies
+    for(var d in data){
+        if(data[d].Year >= y_min && data[d].Year <= y_max && data[d].Month >= m_min && data[d].Month <= m_max 
+        && data[d].DayofMonth >= dm_min && data[d].DayofMonth <= dm_max){
+            if(companys[data[d].UniqueCarrier] == undefined){
+                if(data[d].Distance != "" && data[d].ActualElapsedTime != ""){
+                    if(data[d].ArrDelay == ""){
+                        data[d].ArrDelay = 0;
+                    }
+                    companys[data[d].UniqueCarrier] = {
+                        "Distance": parseInt(data[d].Distance), 
+                        "ActualElapsedTime": parseInt(data[d].ActualElapsedTime), 
+                        "totalDelay": parseInt(data[d].ArrDelay) + parseInt(data[d].DepDelay),
+                        "cpt": 1};
+                }
+            }
+            else{
+                //Sécu pour ne pas prendre en compte les lignes où les données nous manque
+                if(data[d].Distance != "" && data[d].ActualElapsedTime != ""){
+                    companys[data[d].UniqueCarrier].Distance += parseInt(data[d].Distance);
+                    companys[data[d].UniqueCarrier].ActualElapsedTime += parseInt(data[d].ActualElapsedTime);
+                    if(data[d].ArrDelay == ""){
+                        data[d].ArrDelay = 0;
+                    }
+                    companys[data[d].UniqueCarrier].totalDelay += parseInt(data[d].ArrDelay);
+                    companys[data[d].UniqueCarrier].cpt += 1;
+                }
+            }
+        }
+    }
+
+    //Moyennes
+    for(var c in companys){
+        companys[c].Distance = parseInt(companys[c].Distance) / companys[c].cpt;
+        companys[c].ActualElapsedTime = parseInt(companys[c].ActualElapsedTime) / companys[c].cpt;
+        companys[c].totalDelay = parseInt(companys[c].totalDelay) / companys[c].cpt;
+    }
+
+    //get max pour les axes
+    var max_dist = 0;
+    var max_elapsed = 0;
+    for(var c in companys){
+        if(parseInt(companys[c].Distance) > max_dist){
+            max_dist = parseInt(companys[c].Distance);
+        }
+        if(parseInt(companys[c].ActualElapsedTime) > max_elapsed){
+            max_elapsed = parseInt(companys[c].ActualElapsedTime);
+        }
+    }
+
+    for(var c in companys){
+        json_companys.push({
+            "name": c, 
+            "Distance": companys[c].Distance, 
+            "ActualElapsedTime": companys[c].ActualElapsedTime,
+            "totalDelay": companys[c].totalDelay});
+    }
+
+    //Trie du tableau pour afficher les grands cercles en premier et ne pas cacher les plus petits
+    json_companys.sort(sortByDelay);
+
+    xScale = d3.scaleLinear().domain([0, max_dist]).range([0, width]);
+    yScale = d3.scaleLinear().domain([0, max_elapsed]).range([height, 0]);
+
+    xAxis = d3.axisBottom(xScale);
+    yAxis = d3.axisLeft(yScale);
+
+    // Add the y Axis
+    dy = svg.append("g")
+        .call(yAxis)
+        .select(".domain");
+
+    // Add the x Axis
+    dx = svg.append("g")
+        .attr("transform", "translate(0," + height + ")")
+        .call(xAxis)
+        .select(".domain");
+
+    var names = [];
+    for(var c in companys){
+        names.push(c);
+    }
+    color = d3.scaleLinear()
+    .domain([0,names.length])
+    .range(["rgb(255, 100, 0)", "rgb(0, 100, 255)"])
+    .interpolate(d3.interpolateHcl);
+
+    var max = d3.max(json_companys, function(d) { return parseInt(d.totalDelay); }) + 1;
+    var min = d3.min(json_companys, function(d) { return parseInt(d.totalDelay); });
+    
+    //Dessine les cercles
+    svg.selectAll(".companys")
+        .data(json_companys)
+        .enter()
+        .append("circle")
+        .attr("cx", function(d){ return xScale(d.Distance); })
+        .attr("cy", function(d){ return yScale(d.ActualElapsedTime); })
+        .attr("r", function(d){
+            
+                return rescaler(parseInt(d.totalDelay), min, max, 10, 20); 
+            })
+        .attr("fill", function(d, i){
+            return color(i);
+        })
+        .on('mousemove', function(d) {
+            var mouse = d3.mouse(svg.node()).map(function(d) {
+                return parseInt(d);
+            });
+            tooltip.classed('hidden', false)
+                .attr('style', 'left:' + (mouse[0]) +
+                    'px; top:' + (mouse[1]) + 'px', "position: absolute;")
+                .html(function(i){
+                    return d.name + ", retard moyen : " + parseInt(d.totalDelay) + " mn";
+                });
+            })
+        .on('mouseout', function() {
+        tooltip.classed('hidden', true);
+        });
+});
+
+var lastTk = 1, lastTx = 0, lastTy = 1;
+function zoomFunction(){
+    //Limiter le zoom
+    var t = d3.event.transform;
+    var max_zoom = 5;
+    var min_zoom = 1;
+    if(t.k > max_zoom){
+        t.k = lastTk;
+        t.x = lastTx;
+        t.y = lastTy;
+    }
+    if(t.k < min_zoom){
+        t.k = lastTk;
+        t.x = lastTx;
+        t.y = lastTy;
+    }
+
+    // create new scale ojects based on event
+    var new_xScale = d3.event.transform.rescaleX(xScale)
+    var new_yScale = d3.event.transform.rescaleY(yScale)
+
+    // update axes
+    dx.call(xAxis.scale(new_xScale));
+    dy.call(yAxis.scale(new_yScale));
+
+    // update circle
+    svg.attr("transform", d3.event.transform);
+    //svg.selectAll("circle").attr("transform", d3.event.transform);
+    //svg.attr("transform", "translate(" + d3.event.translate + ")" + " scale(" + d3.event.scale + ")")
+
+    var max = d3.max(json_companys, function(d) { return parseInt(d.totalDelay); }) + 1;
+    var min = d3.min(json_companys, function(d) { return parseInt(d.totalDelay); });
+    
+    
+    if(lastTk != t.k){
+        svg.selectAll("circle").remove();
+        //Dessine les cercles
+        svg.selectAll(".companys")
+            .data(json_companys)
+            .enter()
+            .append("circle")
+            .attr("cx", function(d){ return xScale(d.Distance); })
+            .attr("cy", function(d){ return yScale(d.ActualElapsedTime); })
+            .attr("r", function(d){
+                    var r = rescaler(parseInt(d.totalDelay), min, max, 10 / t.k, 20 / t.k);
+                    return r; 
+                })
+            .attr("fill", function(d, i){
+                return color(i);
+            })
+            .on('mousemove', function(d) {
+                var mouse = d3.mouse(svg.node()).map(function(d) {
+                    return parseInt(d);
+                });
+                tooltip.classed('hidden', false)
+                    .attr('style', 'left:' + (mouse[0]) +
+                        'px; top:' + (mouse[1]) + 'px')
+                    .html(function(i){
+                        return d.name + ", retard moyen : " + parseInt(d.totalDelay) + " mn";
+                    });
+                })
+            .on('mouseout', function() {
+            tooltip.classed('hidden', true);
+            });
+    }
+    lastTk = t.k;
+    lastTx = t.x;
+    lastTy = t.y;
+};
+
+function rescaler(val, min_in, max_in, min_out, max_out){
+    if(val > max_in)
+        max_in = val;
+    if(val < min_in)
+        min_in = val;
+    
+    if( min_in == max_in)
+        return val;
+        
+    return (max_out - min_out) * (val - min_in + 0.0001) /  (max_in - min_in + 0.0001) + min_out ;
+}
+
+//Trie par retard (decroissant)
+function sortByDelay(a, b){
+  return (a.totalDelay > b.totalDelay) ? 0 : 1;
+}
+
+</script>
+</body>
