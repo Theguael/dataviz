@@ -172,6 +172,9 @@ d3.csv("data_22.csv", function(data) {
             })
         .on('mouseout', function() {
         tooltip.classed('hidden', true);
+        })
+        .on("click", function(d){
+            console.log("CLICK ON " + d.name);
         });
 });
 
@@ -248,6 +251,9 @@ function draw(t = undefined, reprint = true){
             })
         .on('mouseout', function() {
         tooltip.classed('hidden', true);
+        })
+        .on("click", function(d){
+            console.log("CLICK ON " + d.name);
         });
 }
 
@@ -268,6 +274,9 @@ function updateTooltip(t){
             })
         .on('mouseout', function() {
         tooltip.classed('hidden', true);
+        })        
+        .on("click", function(d){
+            console.log("CLICK ON " + d.name);
         });
 }
 
