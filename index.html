@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <head>
+    <link href="./materialize/css/nouislider.css" rel="stylesheet">
 </head>
 
 <style> /* set the CSS */
@@ -31,12 +32,18 @@ div.tooltip {
 
 <!-- load the d3.js library -->    	
 <script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="./materialize/js/nouislider.js"></script>
 
 <div>
-    <label for="min_year">min_month:</label>
-    <input name="min_year" id="min_year">
-    <label for="max_year">min_month:</label>
-    <input name="max_year" id="max_year">
+    </br>
+    <p>Year (1987-2008)</p>
+    <div id="slider_years"></div>
+    </br>
+    <p>Months (1-12)</p>
+    <div id="slider_months"></div>
+    </br>
+    <p>Days (1-31)</p>
+    <div id="slider_day_months"></div>
 </div>
 
 <script>
@@ -52,6 +59,12 @@ var margin = {top: 100, right: 100, bottom: 100, left: 100},
 
 var color = [];
 var xScale = 0, yScale = 0, dx = 0, dy = 0, xAxis = 0, yAxis = 0;
+
+var names = [];
+var color = d3.scaleLinear()
+.domain([0,names.length])
+.range(["rgb(255, 100, 0)", "rgb(0, 100, 255)"])
+.interpolate(d3.interpolateHcl);
 
 //,Year,Month,DayofMonth,DayOfWeek,DepTime,CRSDepTime,ArrTime,CRSArrTime,UniqueCarrier,FlightNum,TailNum,ActualElapsedTime,CRSElapsedTime,AirTime,ArrDelay,DepDelay,Origin,Dest,Distance,TaxiIn,TaxiOut,Cancelled,CancellationCode,Diverted,CarrierDelay,WeatherDelay,NASDelay,SecurityDelay,LateAircraftDelay
 
@@ -70,64 +83,60 @@ var toProcess = [];
 var json_companys = [];
 
 d3.csv("data_22.csv", function(data) {
-    //PARAMETRE A DEFINIR PAR SLIDER
-    var y_min = 2008, y_max = 2008, m_min = 1, m_max = 12, dm_min = 0, dm_max = 31;
-    
-    //Slider HTML
-    var min_year = d3.select('#min_year');
-    min_year.on("input", function() {
-        m_min = this.value;
+    console.log(data);
+    //PARAMETRE A MODIFIER PAR SLIDER
+    var y_min = 1987, y_max = 2008, m_min = 1, m_max = 12, dm_min = 0, dm_max = 31;
+
+    // When the slider value changes, update the input and span
+    sliderYear.noUiSlider.on('update', function( values, handle ) {
+        y_min = parseInt(values[0]);
+        y_max = parseInt(values[1]);
         parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
         json_companys.sort(sortByDelay);
+        getNewAxis();
+        updateAxis();
         draw();
     });
-    var max_year = d3.select('#max_year');
-    var max_year = d3.select('#max_year');
-    max_year.on("input", function() {
-        m_max = this.value;
+    sliderMonth.noUiSlider.on('update', function( values, handle ) {
+        m_min = parseInt(values[0]);
+        m_max = parseInt(values[1]);
         parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
         json_companys.sort(sortByDelay);
+        getNewAxis();
+        updateAxis();
+        draw();
+    });
+    sliderDayMonth.noUiSlider.on('update', function( values, handle ) {
+        dm_min = parseInt(values[0]);
+        dm_max = parseInt(values[1]);
+        parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
+        json_companys.sort(sortByDelay);
+        getNewAxis();
+        updateAxis();
         draw();
     });
 
     parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
 
-    //get max pour les axes
-    var max_dist = 0;
-    var max_elapsed = 0;
-    for(var c in companys){
-        if(parseInt(companys[c].Distance) > max_dist){
-            max_dist = parseInt(companys[c].Distance);
-        }
-        if(parseInt(companys[c].ActualElapsedTime) > max_elapsed){
-            max_elapsed = parseInt(companys[c].ActualElapsedTime);
-        }
-    }
-
-    //Trie du tableau pour afficher les grands cercles en premier et ne pas cacher les plus petits
-    json_companys.sort(sortByDelay);
-
-    xScale = d3.scaleLinear().domain([0, max_dist]).range([0, width]);
-    yScale = d3.scaleLinear().domain([0, max_elapsed]).range([height, 0]);
-
-    xAxis = d3.axisBottom(xScale);
-    yAxis = d3.axisLeft(yScale);
+    getNewAxis();
 
     // Add the y Axis
     dy = svg.append("g")
+        .attr("class", "y axis")        
         .call(yAxis)
         .select(".domain");
 
     // Add the x Axis
     dx = svg.append("g")
+        .attr("class", "x axis")
         .attr("transform", "translate(0," + height + ")")
         .call(xAxis)
         .select(".domain");
 
-    var names = [];
     for(var c in companys){
         names.push(c);
     }
+
     color = d3.scaleLinear()
     .domain([0,names.length])
     .range(["rgb(255, 100, 0)", "rgb(0, 100, 255)"])
@@ -170,6 +179,7 @@ var lastTk = 1, lastTx = 0, lastTy = 1;
 function zoomFunction(){
     //Limiter le zoom
     var t = d3.event.transform;
+
     var max_zoom = 5;
     var min_zoom = 1;
     if(t.k > max_zoom){
@@ -187,15 +197,14 @@ function zoomFunction(){
     var new_xScale = d3.event.transform.rescaleX(xScale)
     var new_yScale = d3.event.transform.rescaleY(yScale)
 
-    // update axes
-    dx.call(xAxis.scale(new_xScale));
-    dy.call(yAxis.scale(new_yScale));
-
     // update circle
     svg.attr("transform", d3.event.transform);
 
     if(lastTk != t.k){
-       draw(t);
+        draw(t);
+    }
+    else{
+        updateTooltip(t);
     }
 
     lastTk = t.k;
@@ -203,7 +212,7 @@ function zoomFunction(){
     lastTy = t.y;
 };
 
-function draw(t = undefined){
+function draw(t = undefined, reprint = true){
     var max = d3.max(json_companys, function(d) { return parseInt(d.totalDelay); }) + 1;
     var min = d3.min(json_companys, function(d) { return parseInt(d.totalDelay); });
 
@@ -229,9 +238,30 @@ function draw(t = undefined){
             var mouse = d3.mouse(svg.node()).map(function(d) {
                 return parseInt(d);
             });
+            
             tooltip.classed('hidden', false)
                 .attr('style', 'left:' + (mouse[0]) +
-                    'px; top:' + (mouse[1]) + 'px')
+                    'px; top:' + (mouse[1]) + 'px', 'position: absolute;')
+                .html(function(i){
+                    return d.name + ", retard moyen : " + parseInt(d.totalDelay) + " mn";
+                });
+            })
+        .on('mouseout', function() {
+        tooltip.classed('hidden', true);
+        });
+}
+
+function updateTooltip(t){
+    svg.selectAll("circle")
+        .on('mousemove', function(d) {
+            var mouse = d3.mouse(svg.node()).map(function(d) {
+                return parseInt(d);
+            });
+            var minus = lastTy;
+            
+            tooltip.classed('hidden', false)
+                .attr('style', 'left:' + (mouse[0] + t.x / t.k) +
+                    'px; top:' + (mouse[1] + t.y / 2) + 'px', 'position: absolute;')
                 .html(function(i){
                     return d.name + ", retard moyen : " + parseInt(d.totalDelay) + " mn";
                 });
@@ -245,34 +275,41 @@ function parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max){
     companys = {};
     json_companys = [];
     //Agregation de données par companies
-    console.log(m_max);
-    for(var d in data){
-        if(data[d].Year >= y_min && data[d].Year <= y_max && data[d].Month >= m_min && data[d].Month <= m_max 
-        && data[d].DayofMonth >= dm_min && data[d].DayofMonth <= dm_max){
-            if(companys[data[d].UniqueCarrier] == undefined){
-                if(data[d].Distance != "" && data[d].ActualElapsedTime != ""){
-                    if(data[d].ArrDelay == ""){
-                        data[d].ArrDelay = 0;
+    for(var d = 0; d < data.length; d++){
+        if(data[d].Month > m_max)
+            break;
+        if(data[d].Month >= m_min){
+            if(data[d].Year >= y_min && data[d].Year <= y_max && data[d].Month >= m_min && data[d].Month <= m_max 
+            && data[d].DayofMonth >= dm_min && data[d].DayofMonth <= dm_max){
+                if(companys[data[d].UniqueCarrier] == undefined){
+                    if(data[d].Distance != "" && data[d].ActualElapsedTime != ""){
+                        if(data[d].ArrDelay == ""){
+                            data[d].ArrDelay = 0;
+                        }
+
+                        companys[data[d].UniqueCarrier] = {
+                            "Distance": parseInt(data[d].Distance), 
+                            "ActualElapsedTime": parseInt(data[d].ActualElapsedTime), 
+                            "totalDelay": parseInt(data[d].ArrDelay), //+ parseInt(data[d].DepDelay),
+                            "cpt": 1};
                     }
-                    companys[data[d].UniqueCarrier] = {
-                        "Distance": parseInt(data[d].Distance), 
-                        "ActualElapsedTime": parseInt(data[d].ActualElapsedTime), 
-                        "totalDelay": parseInt(data[d].ArrDelay) + parseInt(data[d].DepDelay),
-                        "cpt": 1};
+                }
+                else{
+                    //Sécu pour ne pas prendre en compte les lignes où les données nous manque
+                    if(data[d].Distance != "" && data[d].ActualElapsedTime != ""){
+                        companys[data[d].UniqueCarrier].Distance += parseInt(data[d].Distance);
+                        companys[data[d].UniqueCarrier].ActualElapsedTime += parseInt(data[d].ActualElapsedTime);
+                        if(data[d].ArrDelay == ""){
+                            data[d].ArrDelay = 0;
+                        }
+                        companys[data[d].UniqueCarrier].totalDelay += parseInt(data[d].ArrDelay);
+                        companys[data[d].UniqueCarrier].cpt += 1;
+                    }
                 }
             }
-            else{
-                //Sécu pour ne pas prendre en compte les lignes où les données nous manque
-                if(data[d].Distance != "" && data[d].ActualElapsedTime != ""){
-                    companys[data[d].UniqueCarrier].Distance += parseInt(data[d].Distance);
-                    companys[data[d].UniqueCarrier].ActualElapsedTime += parseInt(data[d].ActualElapsedTime);
-                    if(data[d].ArrDelay == ""){
-                        data[d].ArrDelay = 0;
-                    }
-                    companys[data[d].UniqueCarrier].totalDelay += parseInt(data[d].ArrDelay);
-                    companys[data[d].UniqueCarrier].cpt += 1;
-                }
-            }
+        }
+        else{
+            d += 1000;
         }
     }
 
@@ -292,6 +329,42 @@ function parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max){
     }
 }
 
+function getNewAxis(){
+    //get max pour les axes
+    var max_dist = 0;
+    var max_elapsed = 0;
+    for(var c in companys){
+        if(parseInt(companys[c].Distance) > max_dist){
+            max_dist = parseInt(companys[c].Distance);
+        }
+        if(parseInt(companys[c].ActualElapsedTime) > max_elapsed){
+            max_elapsed = parseInt(companys[c].ActualElapsedTime);
+        }
+    }
+    
+    //Trie du tableau pour afficher les grands cercles en premier et ne pas cacher les plus petits
+    json_companys.sort(sortByDelay);
+    
+    xScale = d3.scaleLinear().domain([0, max_dist]).range([0, width]);
+    yScale = d3.scaleLinear().domain([0, max_elapsed]).range([height, 0]);
+
+    xAxis = d3.axisBottom(xScale);
+    yAxis = d3.axisLeft(yScale);
+}
+
+function updateAxis(){
+    var t = d3.transition()
+        .duration(200)
+    
+    svg.select(".x")
+        .transition(t)
+        .call(xAxis)
+    
+    svg.select(".y")
+        .transition(t)
+        .call(yAxis)
+}
+
 function rescaler(val, min_in, max_in, min_out, max_out){
     if(val > max_in)
         max_in = val;
@@ -309,5 +382,49 @@ function sortByDelay(a, b){
   return (a.totalDelay > b.totalDelay) ? 0 : 1;
 }
 
+var sliderYear = document.getElementById('slider_years');
+    noUiSlider.create(sliderYear, {
+    start: [1987, 2008],
+    connect: true,
+    step: 1,
+    orientation: 'horizontal', // 'horizontal' or 'vertical'
+    range: {
+        'min': 1987,
+        'max': 2008
+    },
+    format: wNumb({
+        decimals: 0
+    })
+});
+
+var sliderMonth = document.getElementById('slider_months');
+    noUiSlider.create(sliderMonth, {
+    start: [1, 12],
+    connect: true,
+    step: 1,
+    orientation: 'horizontal', // 'horizontal' or 'vertical'
+    range: {
+        'min': 1,
+        'max': 12
+    },
+    format: wNumb({
+        decimals: 0
+    })
+});
+
+var sliderDayMonth = document.getElementById('slider_day_months');
+    noUiSlider.create(sliderDayMonth, {
+    start: [1, 31],
+    connect: true,
+    step: 1,
+    orientation: 'horizontal',
+    range: {
+        'min': 1,
+        'max': 31
+    },
+    format: wNumb({
+        decimals: 0
+    })
+});
 </script>
 </body>
