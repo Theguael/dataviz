@@ -83,7 +83,6 @@ var toProcess = [];
 var json_companys = [];
 
 d3.csv("data_22.csv", function(data) {
-    console.log(data);
     //PARAMETRE A MODIFIER PAR SLIDER
     var y_min = 1987, y_max = 2008, m_min = 1, m_max = 12, dm_min = 0, dm_max = 31;
 
@@ -117,6 +116,7 @@ d3.csv("data_22.csv", function(data) {
     });
 
     parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
+    console.log(companys);
 
     getNewAxis();
 
@@ -153,12 +153,11 @@ d3.csv("data_22.csv", function(data) {
         .attr("cx", function(d){ return xScale(d.Distance); })
         .attr("cy", function(d){ return yScale(d.ActualElapsedTime); })
         .attr("r", function(d){
-            
                 return rescaler(parseInt(d.totalDelay), min, max, 10, 20); 
             })
         .attr("fill", function(d, i){
             return color(i);
-        })
+            })
         .on('mousemove', function(d) {
             var mouse = d3.mouse(svg.node()).map(function(d) {
                 return parseInt(d);
@@ -299,19 +298,47 @@ function parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max){
                         companys[data[d].UniqueCarrier] = {
                             "Distance": parseInt(data[d].Distance), 
                             "ActualElapsedTime": parseInt(data[d].ActualElapsedTime), 
-                            "totalDelay": parseInt(data[d].ArrDelay), //+ parseInt(data[d].DepDelay),
+                            "totalDelay": parseInt(data[d].ArrDelay), 
+                            "CarrierDelay": parseInt(data[d].CarrierDelay),
+                            "WeatherDelay": parseInt(data[d].WeatherDelay),
+                            "NASDelay": parseInt(data[d].NASDelay),
+                            "SecurityDelay": parseInt(data[d].SecurityDelay),
+                            "LateAircraftDelay": parseInt(data[d].LateAircraftDelay),
+                            "Cancelled": parseInt(data[d].Cancelled), 
+                            "Diverted": parseInt(data[d].Cancelled),
                             "cpt": 1};
                     }
                 }
                 else{
                     //Sécu pour ne pas prendre en compte les lignes où les données nous manque
                     if(data[d].Distance != "" && data[d].ActualElapsedTime != ""){
+                        //Rempli les données à 0 la où elles manquent dans le dataset
+                        if(data[d].ArrDelay == "")
+                            data[d].ArrDelay = 0;
+                        if(data[d].CarrierDelay == "")
+                            data[d].CarrierDelay = 0;
+                        if(data[d].WeatherDelay == "")
+                            data[d].WeatherDelay = 0;
+                        if(data[d].NASDelay == "")
+                            data[d].NASDelay = 0;
+                        if(data[d].SecurityDelay == "")
+                            data[d].SecurityDelay = 0;
+                        if(data[d].LateAircraftDelay == "")
+                            data[d].LateAircraftDelay = 0;
+                        if(data[d].Cancelled == "")
+                            data[d].Cancelled = 0;
+                        if(data[d].Diverted == "")
+                            data[d].Diverted = 0;                            
                         companys[data[d].UniqueCarrier].Distance += parseInt(data[d].Distance);
                         companys[data[d].UniqueCarrier].ActualElapsedTime += parseInt(data[d].ActualElapsedTime);
-                        if(data[d].ArrDelay == ""){
-                            data[d].ArrDelay = 0;
-                        }
                         companys[data[d].UniqueCarrier].totalDelay += parseInt(data[d].ArrDelay);
+                        companys[data[d].UniqueCarrier].CarrierDelay += parseInt(data[d].CarrierDelay);
+                        companys[data[d].UniqueCarrier].WeatherDelay += parseInt(data[d].WeatherDelay);
+                        companys[data[d].UniqueCarrier].NASDelay += parseInt(data[d].NASDelay);
+                        companys[data[d].UniqueCarrier].SecurityDelay += parseInt(data[d].SecurityDelay);
+                        companys[data[d].UniqueCarrier].LateAircraftDelay += parseInt(data[d].LateAircraftDelay);
+                        companys[data[d].UniqueCarrier].Cancelled += parseInt(data[d].Cancelled);
+                        companys[data[d].UniqueCarrier].Diverted += parseInt(data[d].Cancelled);
                         companys[data[d].UniqueCarrier].cpt += 1;
                     }
                 }
@@ -324,9 +351,16 @@ function parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max){
 
     //Moyennes
     for(var c in companys){
+        companys[c].totalDelay = parseInt(companys[c].totalDelay) / companys[c].cpt;
         companys[c].Distance = parseInt(companys[c].Distance) / companys[c].cpt;
         companys[c].ActualElapsedTime = parseInt(companys[c].ActualElapsedTime) / companys[c].cpt;
-        companys[c].totalDelay = parseInt(companys[c].totalDelay) / companys[c].cpt;
+        companys[c].CarrierDelay = parseInt(companys[c].CarrierDelay) / companys[c].cpt;
+        companys[c].WeatherDelay = parseInt(companys[c].WeatherDelay) / companys[c].cpt;
+        companys[c].NASDelay = parseInt(companys[c].NASDelay) / companys[c].cpt;
+        companys[c].SecurityDelay = parseInt(companys[c].SecurityDelay) / companys[c].cpt;
+        companys[c].LateAircraftDelay = parseInt(companys[c].LateAircraftDelay) / companys[c].cpt;
+        companys[c].Cancelled = parseInt(companys[c].Cancelled) / companys[c].cpt;
+        companys[c].Diverted = parseInt(companys[c].Diverted) / companys[c].cpt;
     }
 
     for(var c in companys){
