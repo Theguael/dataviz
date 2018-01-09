@@ -209,11 +209,21 @@ function draw(t = undefined){
                 var div = lastTk;
                 if(t != undefined)
                     div = t.k;
-                var r = rescaler(parseInt(d.totalDelay), min, max, 10 / div, 20 / div);
+                var r = rescaler(parseInt(d.totalDelay), min, max, 10 / div, 25 / div);
                 return r; 
             })
         .attr("fill", function(d, i){
             return color(i);
+        })
+        .attr("stroke", "black")
+        .attr("stroke-width", function(d){
+            var div = lastTk;
+            if(t != undefined)
+                div = t.k;
+            if(d.name == COMPANY_TO_FOLLOW){
+                return 8 / div;
+            }
+            return 1 / div;
         })
         .on('mousemove', function(d) {
             d3.select(this).style("cursor", "pointer");
@@ -273,7 +283,7 @@ function updateBubble(json_companys, t = undefined){
             var div = lastTk;
             if(t != undefined)
                 div = t.k;
-            var r = rescaler(parseInt(d.totalDelay), min, max, 10 / div, 20 / div);
+            var r = rescaler(parseInt(d.totalDelay), min, max, 10 / div, 25 / div);
             return r; 
         })
         .attr("fill", function(d, i){
@@ -592,13 +602,61 @@ function drawPie(name, pie_data){
 
 function updatePie(name, pie_data){
     //pie_data = clean_pie_data(pie_data);
+
+    //Préparation du pie chart
+    var svg = d3.select("svg");
+    var animationDuration = 400;
+    var t = d3.transition().duration(animationDuration);
+
+    //Suppression de l'ancien s'il y en a un
+    svg.selectAll(".pie_chart").remove();
+
+    var g = svg.append("g")
+    .attr("transform", "translate(" + parseInt(bubble_width + pie_width) + "," + pie_height / 2 + ")")
+    .attr("class", "pie_chart");
+
+    var color = d3.scaleOrdinal(["#98abc5", "#8a89a6", "#7b6888", "#6b486b", "#a05d56", "#d0743c", "#ff8c00"]);
+
+    var pie = d3.pie()
+        .sort(null)
+        .value(function(d) { return d.number; });
+
+    var path = d3.arc()
+        .outerRadius(radius - 10)
+        .innerRadius(0);
+
+    var label = d3.arc()
+        .outerRadius(radius - 40)
+        .innerRadius(radius - 40);
+
+    var pie_arc = g.selectAll(".arc")
+        .data(pie(pie_data))
+        .enter()
+        .append("g")
+        .attr("class", "arc");
+
+    pie_arc.append("path")
+        .attr("d", path)
+        .attr("fill", function(d) { return color(d.data.name); });
+
+    pie_arc.append("text")
+        .attr("transform", function(d) { return "translate(" + label.centroid(d) + ")"; })
+        .attr("dy", "0.35em")
+        .text(function(d) { return d.data.name; });
+    oldPieData = pie_data;
+    oldPieChart = pie;
+
+    /*
+    //pie_data = clean_pie_data(pie_data);
     if(pie_data.length > 0){
         transition(pie_data);
     }
     else{
+        var svg = d3.select("svg");
         svg.selectAll(".pie_chart").remove();
     }
     oldPieData = pie_data;
+    */
 }
 
 function arcs(data) {
@@ -608,10 +666,8 @@ function arcs(data) {
     .sort(null);
 
     var n = Object.keys(data).length;
-        console.log("test 0");
     var arcs0 = pie(getNumber(oldPieData)),
         arcs1 = pie(getNumber(data));
-        console.log("test 0.5");
 
     var sum = 0;
     for(var x in oldPieData){
@@ -627,7 +683,7 @@ function arcs(data) {
     outerRad0 = radiusScale(sum),
     outerRad1 = radiusScale(sum2);
     
-    console.log("hi", outerRad0, outerRad1) ;                                                               // @debug
+    console.log("hi", outerRad0, outerRad1) ;                                               // @debug
     console.log("n : " + n) ;                                                               // @debug
     
     while (++i < n) {
@@ -650,7 +706,6 @@ function transition(to) {
     var t2 = path.transition()
                 .duration(1000)
             .attrTween("d", tweenArc(function(d, i) {
-            console.log(d)
             return {
                 startAngle: d.next.startAngle,
                 endAngle: d.next.endAngle,
@@ -668,8 +723,6 @@ function tweenArc(b) {
     };
 }
 
-
-
 function getNumber(matrix){
     var column = [];
     for(var i in matrix){
@@ -677,5 +730,7 @@ function getNumber(matrix){
     }
     return column;
 }
+
+function 
 </script>
 </body>
