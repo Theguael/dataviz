@@ -115,8 +115,10 @@
                 getNewAxis();
                 updateAxis();
                 if (COMPANY_TO_FOLLOW != undefined) {
-                    var pie_data = buildData(COMPANY_TO_FOLLOW);
+                    var pie_data = buildPieData(COMPANY_TO_FOLLOW);
+                    var line_data = buildLineData(COMPANY_TO_FOLLOW);
                     drawPie(COMPANY_TO_FOLLOW, pie_data, true);
+                    drawLine(COMPANY_TO_FOLLOW, line_data, true);
                 }
                 updateBubble(json_companys);
             });
@@ -128,8 +130,10 @@
                 getNewAxis();
                 updateAxis();
                 if (COMPANY_TO_FOLLOW != undefined) {
-                    var pie_data = buildData(COMPANY_TO_FOLLOW);
+                    var pie_data = buildPieData(COMPANY_TO_FOLLOW);
+                    var line_data = buildLineData(COMPANY_TO_FOLLOW);
                     drawPie(COMPANY_TO_FOLLOW, pie_data, true);
+                    drawLine(COMPANY_TO_FOLLOW, line_data, true);
                 }
                 updateBubble(json_companys);
             });
@@ -260,8 +264,10 @@
                     }
                     else {
                         COMPANY_TO_FOLLOW = d.name;
-                        var pie_data = buildData(d.name);
-                        drawPie(d.name, pie_data);
+                        var pie_data = buildPieData(COMPANY_TO_FOLLOW);
+                        var line_data = buildLineData(COMPANY_TO_FOLLOW);
+                        drawPie(COMPANY_TO_FOLLOW, pie_data, true);
+                        drawLine(COMPANY_TO_FOLLOW, line_data, true);
                     }
                     updateBubble(json_companys);
                 });
@@ -346,6 +352,7 @@
                         && data[d].DayofMonth >= dm_min && data[d].DayofMonth <= dm_max) {
                         if (companys[data[d].UniqueCarrier] == undefined) {
                             if (data[d].Distance != "" && data[d].ActualElapsedTime != "") {
+                                var date = undefined;
                                 //Sécu pour ne pas prendre en compte les lignes où les données nous manque
                                 if (data[d].ArrDelay == "")
                                     data[d].ArrDelay = 0;
@@ -363,7 +370,9 @@
                                     data[d].Cancelled = 0;
                                 if (data[d].Diverted == "")
                                     data[d].Diverted = 0;
-
+                                if (data[d].DayofMonth != "" && data[d].Month != "" && data[d].Year != "")
+                                    date = data[d].DayofMonth + "/" + data[d].Month + "/" + data[d].Year;
+                                
                                 companys[data[d].UniqueCarrier] = {
                                     "Distance": parseInt(data[d].Distance),
                                     "ActualElapsedTime": parseInt(data[d].ActualElapsedTime),
@@ -375,6 +384,7 @@
                                     "LateAircraftDelay": parseInt(data[d].LateAircraftDelay),
                                     "Cancelled": parseInt(data[d].Cancelled),
                                     "Diverted": parseInt(data[d].Cancelled),
+                                    "DelayPerDay": [{"Delay": parseInt(data[d].ArrDelay), "Day": date}],
                                     "cpt": 1
                                 };
                             }
@@ -382,6 +392,7 @@
                         else {
                             //Sécu pour ne pas prendre en compte les lignes où les données nous manque
                             if (data[d].Distance != "" && data[d].ActualElapsedTime != "") {
+                                var date = undefined;
                                 //Rempli les données à 0 la où elles manquent dans le dataset
                                 if (data[d].ArrDelay == "")
                                     data[d].ArrDelay = 0;
@@ -399,6 +410,9 @@
                                     data[d].Cancelled = 0;
                                 if (data[d].Diverted == "")
                                     data[d].Diverted = 0;
+                                if (data[d].DayofMonth != "" && data[d].Month != "" && data[d].Year != "")
+                                    date = data[d].DayofMonth + "/" + data[d].Month + "/" + data[d].Year;
+
                                 companys[data[d].UniqueCarrier].Distance += parseInt(data[d].Distance);
                                 companys[data[d].UniqueCarrier].ActualElapsedTime += parseInt(data[d].ActualElapsedTime);
                                 companys[data[d].UniqueCarrier].totalDelay += parseInt(data[d].ArrDelay);
@@ -409,6 +423,7 @@
                                 companys[data[d].UniqueCarrier].LateAircraftDelay += parseInt(data[d].LateAircraftDelay);
                                 companys[data[d].UniqueCarrier].Cancelled += parseInt(data[d].Cancelled);
                                 companys[data[d].UniqueCarrier].Diverted += parseInt(data[d].Cancelled);
+                                companys[data[d].UniqueCarrier].DelayPerDay.push({"Delay": parseInt(data[d].ArrDelay), "Day": date});
                                 companys[data[d].UniqueCarrier].cpt += 1;
                             }
                         }
@@ -445,6 +460,7 @@
                     "LateAircraftDelay": companys[c].LateAircraftDelay,
                     "Cancelled": companys[c].Cancelled,
                     "Diverted": companys[c].Diverted,
+                    "DelayPerDay": companys[c].DelayPerDay,
                     "totalDelay": companys[c].totalDelay
                 });
             }
@@ -503,7 +519,7 @@
             return (a.totalDelay > b.totalDelay) ? 0 : 1;
         }
 
-        function buildData(companyName) {
+        function buildPieData(companyName) {
             var pie_data = [];
             for (var i in json_companys) {
                 if (json_companys[i].name == companyName) {
@@ -518,6 +534,17 @@
                 }
             }
             return pie_data;
+        }
+
+        function buildLineData(companyName) {
+            var line_data = [];
+            for (var i in json_companys) {
+                if (json_companys[i].name == companyName) {
+                    line_data = json_companys[i].DelayPerDay;
+                    break;
+                }
+            }
+            return line_data;
         }
 
         var sliderMonth = document.getElementById('slider_months');
@@ -637,11 +664,9 @@
             return column;
         }
 
-        function drawLineChart(name, pie_data, update = false) {
-            // set the dimensions and margins of the graph
-            var margin = { top: 20, right: 20, bottom: 30, left: 50 },
-                width = 960 - margin.left - margin.right,
-                height = 500 - margin.top - margin.bottom;
+        function drawLine(name, line_data, update = false) {
+            console.log(line_data);
+            d3.selectAll("#line svg").remove();
 
             // parse the date / time
             var parseTime = d3.timeParse("%d-%b-%y");
@@ -652,8 +677,8 @@
 
             // define the line
             var valueline = d3.line()
-                .x(function (d) { return x(d.date); })
-                .y(function (d) { return y(d.close); });
+                .x(function (d) { return x(d.Day); })
+                .y(function (d) { return y(d.Delay); });
 
             // append the svg obgect to the body of the page
             // appends a 'group' element to 'svg'
@@ -665,36 +690,34 @@
                 .attr("transform",
                 "translate(" + margin.left + "," + margin.top + ")");
 
-            // Get the data
-            d3.csv("data.csv", function (error, data) {
-                if (error) throw error;
 
-                // format the data
-                data.forEach(function (d) {
-                    d.date = parseTime(d.date);
-                    d.close = +d.close;
-                });
 
-                // Scale the range of the data
-                x.domain(d3.extent(data, function (d) { return d.date; }));
-                y.domain([0, d3.max(data, function (d) { return d.close; })]);
-
-                // Add the valueline path.
-                svg.append("path")
-                    .data([data])
-                    .attr("class", "line")
-                    .attr("d", valueline);
-
-                // Add the X Axis
-                svg.append("g")
-                    .attr("transform", "translate(0," + height + ")")
-                    .call(d3.axisBottom(x));
-
-                // Add the Y Axis
-                svg.append("g")
-                    .call(d3.axisLeft(y));
-
+            // format the data
+            line_data.forEach(function (d) {
+                d.Day = parseTime(d.Day);
+                //console.log(d.Day);                
+                d.Delay = +d.Delay;
             });
+
+            // Scale the range of the data
+            x.domain(d3.extent(line_data, function (d) { return d.Day; }));
+            y.domain([0, d3.max(line_data, function (d) { return d.Delay; })]);
+
+            // Add the valueline path.
+            svg.append("path")
+                .data([line_data])
+                .attr("class", "line")
+                .attr("d", valueline);
+
+            // Add the X Axis
+            svg.append("g")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(x));
+
+            // Add the Y Axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
         }
 
     </script>
