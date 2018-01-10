@@ -1020,7 +1020,7 @@
 
         //Trie par retard (decroissant)
         function sortByDate(a, b) {
-            return (a.Day - b.Day < 0) ? 0 : 1;
+            return a.Day - b.Day;
         }
 
         function buildPieData(companyName) {
@@ -1232,7 +1232,8 @@
             });
 
             line_data.sort(sortByDate);
-            
+            console.log(line_data);
+
             line_date = agregateDate(line_data);
 
             // Scale the range of the data
