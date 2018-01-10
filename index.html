@@ -53,6 +53,7 @@
     </div>
 
     <script>
+        var preProcessed = {};
         var COMPANY_TO_FOLLOW = undefined;
         //pour le hover
         var tooltip = d3.select('body').append('div')
@@ -101,16 +102,19 @@
 
         var toProcess = [];
         var json_companys = [];
+        var companys = {};
 
+        //d3.csv("../data.csv", function (data) {
         d3.csv("data_22.csv", function (data) {
+            fillPreProcessed(data);
             //PARAMETRE A MODIFIER PAR SLIDER
-            var y_min = 2008, y_max = 2008, m_min = 1, m_max = 12, dm_min = 0, dm_max = 31;
+            var y_min = 2008, y_max = 2008, m_min = 1, m_max = 12, dm_min = 1, dm_max = 31;
 
             // When the slider value changes, update the input and span
             sliderMonth.noUiSlider.on('update', function (values, handle) {
                 m_min = parseInt(values[0]);
                 m_max = parseInt(values[1]);
-                parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
+                fastParseData(m_min, m_max, dm_min, dm_max);
                 json_companys.sort(sortByDelay);
                 getNewAxis();
                 updateAxis();
@@ -125,7 +129,7 @@
             sliderDayMonth.noUiSlider.on('update', function (values, handle) {
                 dm_min = parseInt(values[0]);
                 dm_max = parseInt(values[1]);
-                parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
+                fastParseData(m_min, m_max, dm_min, dm_max);
                 json_companys.sort(sortByDelay);
                 getNewAxis();
                 updateAxis();
@@ -138,7 +142,9 @@
                 updateBubble(json_companys);
             });
 
-            parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
+
+            fastParseData(m_min, m_max, dm_min, dm_max);
+            //parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
 
             getNewAxis();
 
@@ -261,13 +267,14 @@
                     if (COMPANY_TO_FOLLOW == d.name) {
                         COMPANY_TO_FOLLOW = undefined;
                         $("#pie svg").fadeOut(300);
+                        $("#line svg").fadeOut(300);
                     }
                     else {
                         COMPANY_TO_FOLLOW = d.name;
                         var pie_data = buildPieData(COMPANY_TO_FOLLOW);
                         var line_data = buildLineData(COMPANY_TO_FOLLOW);
                         drawPie(COMPANY_TO_FOLLOW, pie_data, true);
-                        drawLine(COMPANY_TO_FOLLOW, line_data, true);
+                        drawLine(COMPANY_TO_FOLLOW, line_data, false);
                     }
                     updateBubble(json_companys);
                 });
@@ -280,6 +287,11 @@
             var svg = d3.select("#bubble svg");
             var animationDuration = 400;
             var tr = d3.transition().duration(animationDuration);
+
+            svg.select("g").selectAll("circle")
+                .data(json_companys);
+                
+            svg.select("g").selectAll("circle").exit().remove();
 
             //Dessine les cercles
             svg.selectAll("circle")
@@ -319,6 +331,11 @@
         }
 
         function updateTooltip(t) {
+            svg.select("g").selectAll("circle")
+                .data(json_companys);
+
+            svg.select("g").selectAll("circle").exit().remove();
+
             svg.selectAll("circle")
                 .on('mousemove', function (d) {
                     d3.select(this).style("cursor", "pointer");
@@ -338,6 +355,171 @@
                     d3.select(this).style("cursor", "default");
                     tooltip.classed('hidden', true);
                 });
+        }
+
+        function fillPreProcessed(data){
+            for (var d = 0; d < data.length; d += 1) {
+                var date = undefined;
+                if (data[d].DayofMonth != "" && data[d].Month != "" && data[d].Year != ""){
+                    date = data[d].DayofMonth + "/" + data[d].Month + "/" + data[d].Year;
+
+                    if (preProcessed[date] == undefined)
+                        preProcessed[date] = {};
+
+                    if (preProcessed[date][data[d].UniqueCarrier] == undefined) {
+                        if (data[d].Distance != "" && data[d].ActualElapsedTime != "") {
+                            //Sécu pour ne pas prendre en compte les lignes où les données nous manque
+                            if (data[d].ArrDelay == "")
+                                data[d].ArrDelay = 0;
+                            if (data[d].CarrierDelay == "")
+                                data[d].CarrierDelay = 0;
+                            if (data[d].WeatherDelay == "")
+                                data[d].WeatherDelay = 0;
+                            if (data[d].NASDelay == "")
+                                data[d].NASDelay = 0;
+                            if (data[d].SecurityDelay == "")
+                                data[d].SecurityDelay = 0;
+                            if (data[d].LateAircraftDelay == "")
+                                data[d].LateAircraftDelay = 0;
+                            if (data[d].Cancelled == "")
+                                data[d].Cancelled = 0;
+                            if (data[d].Diverted == "")
+                                data[d].Diverted = 0;
+                        
+                            preProcessed[date][data[d].UniqueCarrier] = {
+                                "Distance": parseInt(data[d].Distance),
+                                "ActualElapsedTime": parseInt(data[d].ActualElapsedTime),
+                                "totalDelay": parseInt(data[d].ArrDelay),
+                                "CarrierDelay": parseInt(data[d].CarrierDelay),
+                                "WeatherDelay": parseInt(data[d].WeatherDelay),
+                                "NASDelay": parseInt(data[d].NASDelay),
+                                "SecurityDelay": parseInt(data[d].SecurityDelay),
+                                "LateAircraftDelay": parseInt(data[d].LateAircraftDelay),
+                                "Cancelled": parseInt(data[d].Cancelled),
+                                "Diverted": parseInt(data[d].Cancelled),
+                                "DelayPerDay": [{"Delay": parseInt(data[d].ArrDelay), "Day": date}],
+                                "cpt": 1
+                            };
+                            
+                        }
+                    }
+                    else {
+                        //Sécu pour ne pas prendre en compte les lignes où les données nous manque
+                        if (data[d].Distance != "" && data[d].ActualElapsedTime != "") {
+                            //Rempli les données à 0 la où elles manquent dans le dataset
+                            if (data[d].ArrDelay == "")
+                                data[d].ArrDelay = 0;
+                            if (data[d].CarrierDelay == "")
+                                data[d].CarrierDelay = 0;
+                            if (data[d].WeatherDelay == "")
+                                data[d].WeatherDelay = 0;
+                            if (data[d].NASDelay == "")
+                                data[d].NASDelay = 0;
+                            if (data[d].SecurityDelay == "")
+                                data[d].SecurityDelay = 0;
+                            if (data[d].LateAircraftDelay == "")
+                                data[d].LateAircraftDelay = 0;
+                            if (data[d].Cancelled == "")
+                                data[d].Cancelled = 0;
+                            if (data[d].Diverted == "")
+                                data[d].Diverted = 0;
+
+                            
+                            preProcessed[date][data[d].UniqueCarrier].Distance += parseInt(data[d].Distance);
+                            preProcessed[date][data[d].UniqueCarrier].ActualElapsedTime += parseInt(data[d].ActualElapsedTime);
+                            preProcessed[date][data[d].UniqueCarrier].totalDelay += parseInt(data[d].ArrDelay);
+                            preProcessed[date][data[d].UniqueCarrier].CarrierDelay += parseInt(data[d].CarrierDelay);
+                            preProcessed[date][data[d].UniqueCarrier].WeatherDelay += parseInt(data[d].WeatherDelay);
+                            preProcessed[date][data[d].UniqueCarrier].NASDelay += parseInt(data[d].NASDelay);
+                            preProcessed[date][data[d].UniqueCarrier].SecurityDelay += parseInt(data[d].SecurityDelay);
+                            preProcessed[date][data[d].UniqueCarrier].LateAircraftDelay += parseInt(data[d].LateAircraftDelay);
+                            preProcessed[date][data[d].UniqueCarrier].Cancelled += parseInt(data[d].Cancelled);
+                            preProcessed[date][data[d].UniqueCarrier].Diverted += parseInt(data[d].Cancelled);
+                            preProcessed[date][data[d].UniqueCarrier].DelayPerDay.push({"Delay": parseInt(data[d].ArrDelay), "Day": date});
+                            preProcessed[date][data[d].UniqueCarrier].cpt += 1;
+                        }
+                    }               
+
+                }                
+            }
+        }
+
+        function fastParseData(m_min, m_max, dm_min, dm_max) {
+            companys = {};
+            json_companys = [];
+            var dataToProcess = [];
+            var clonePreProcessed = clone(preProcessed);
+            for(var j = m_min; j <= m_max; j++){
+                for(var i = dm_min; i <= dm_max; i++){
+                    date = parseInt(i) + "/" + parseInt(j) + "/2008";
+                    if(clonePreProcessed[date] != undefined){
+                        for(var pre in clonePreProcessed[date]){
+                            clonePreProcessed[date][pre].name = pre;
+                            dataToProcess.push(clone(clonePreProcessed[date][pre]));
+                            dataToProcess[dataToProcess.length - 1].DelayPerDay = clone(clonePreProcessed[date][pre].DelayPerDay);
+                        }
+                    }
+                }
+            }
+
+            for(var i = 0; i < dataToProcess.length; i++){
+                for(var j = 0; j < dataToProcess.length; j++){
+                    if(i != j && dataToProcess[i].name == dataToProcess[j].name){
+                        date = parseInt(i) + "/" + parseInt(j) + "/2008";
+                        dataToProcess[i].Distance += parseInt(dataToProcess[j].Distance);
+                        dataToProcess[i].ActualElapsedTime += parseInt(dataToProcess[j].ActualElapsedTime);
+                        dataToProcess[i].totalDelay += parseInt(dataToProcess[j].totalDelay);
+                        dataToProcess[i].CarrierDelay += parseInt(dataToProcess[j].CarrierDelay);
+                        dataToProcess[i].WeatherDelay += parseInt(dataToProcess[j].WeatherDelay);
+                        dataToProcess[i].NASDelay += parseInt(dataToProcess[j].NASDelay);
+                        dataToProcess[i].SecurityDelay += parseInt(dataToProcess[j].SecurityDelay);
+                        dataToProcess[i].LateAircraftDelay += parseInt(dataToProcess[j].LateAircraftDelay);
+                        dataToProcess[i].Cancelled += parseInt(dataToProcess[j].Cancelled);
+                        dataToProcess[i].Diverted += parseInt(dataToProcess[j].Cancelled);
+                        for(var datetmp in dataToProcess[j].DelayPerDay){
+                            if(dataToProcess[j].DelayPerDay[datetmp].Day != null)
+                                dataToProcess[i].DelayPerDay.push({"Delay": parseInt(dataToProcess[j].DelayPerDay[datetmp].Delay), "Day": dataToProcess[j].DelayPerDay[datetmp].Day});
+                        }
+                        dataToProcess[i].cpt += parseInt(dataToProcess[j].cpt);
+                        dataToProcess.splice(j, 1);
+                        i = 0;
+                        break;
+                    }
+                }
+            }
+
+            //Moyennes
+            for (var d in dataToProcess) {
+                dataToProcess[d].totalDelay = parseInt(dataToProcess[d].totalDelay) / dataToProcess[d].cpt;
+                dataToProcess[d].Distance = parseInt(dataToProcess[d].Distance) / dataToProcess[d].cpt;
+                dataToProcess[d].ActualElapsedTime = parseInt(dataToProcess[d].ActualElapsedTime) / dataToProcess[d].cpt;
+                dataToProcess[d].CarrierDelay = parseInt(dataToProcess[d].CarrierDelay) / dataToProcess[d].cpt;
+                dataToProcess[d].WeatherDelay = parseInt(dataToProcess[d].WeatherDelay) / dataToProcess[d].cpt;
+                dataToProcess[d].NASDelay = parseInt(dataToProcess[d].NASDelay) / dataToProcess[d].cpt;
+                dataToProcess[d].SecurityDelay = parseInt(dataToProcess[d].SecurityDelay) / dataToProcess[d].cpt;
+                dataToProcess[d].LateAircraftDelay = parseInt(dataToProcess[d].LateAircraftDelay) / dataToProcess[d].cpt;
+                dataToProcess[d].Cancelled = parseInt(dataToProcess[d].Cancelled) / dataToProcess[d].cpt;
+                dataToProcess[d].Diverted = parseInt(dataToProcess[d].Diverted) / dataToProcess[d].cpt;
+            }
+
+            for (var d in dataToProcess) {
+                json_companys.push({
+                    "name": dataToProcess[d].name,
+                    "Distance": dataToProcess[d].Distance,
+                    "ActualElapsedTime": dataToProcess[d].ActualElapsedTime,
+                    "CarrierDelay": dataToProcess[d].CarrierDelay,
+                    "WeatherDelay": dataToProcess[d].WeatherDelay,
+                    "NASDelay": dataToProcess[d].NASDelay,
+                    "SecurityDelay": dataToProcess[d].SecurityDelay,
+                    "LateAircraftDelay": dataToProcess[d].LateAircraftDelay,
+                    "Cancelled": dataToProcess[d].Cancelled,
+                    "Diverted": dataToProcess[d].Diverted,
+                    "DelayPerDay": clone(dataToProcess[d].DelayPerDay),
+                    "totalDelay": dataToProcess[d].totalDelay
+                });
+                //console.
+                companys[d] = dataToProcess[d];
+            }
         }
 
         function parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max) {
@@ -430,7 +612,7 @@
                     }
                 }
                 else {
-                    //d += 1;
+                    d += 2;
                 }
             }
 
@@ -460,7 +642,7 @@
                     "LateAircraftDelay": companys[c].LateAircraftDelay,
                     "Cancelled": companys[c].Cancelled,
                     "Diverted": companys[c].Diverted,
-                    "DelayPerDay": companys[c].DelayPerDay,
+                    "DelayPerDay": clone(companys[c].DelayPerDay),
                     "totalDelay": companys[c].totalDelay
                 });
             }
@@ -545,7 +727,9 @@
             var line_data = [];
             for (var i in json_companys) {
                 if (json_companys[i].name == companyName) {
-                    line_data = json_companys[i].DelayPerDay;
+                    for(var el in json_companys[i].DelayPerDay){
+                        line_data.push(clone(json_companys[i].DelayPerDay[el]));
+                    }
                     break;
                 }
             }
@@ -673,6 +857,7 @@
         }
 
         function agregateDate(line_data){
+            //console.log(line_data);
             for(var j = 0; j < line_data.length - 1; j++){
                 size = line_data.length - 1;
                 for(var i = 0; i < size; i++){
@@ -686,7 +871,7 @@
                 }
             }
             for(var i = 0; i < line_data.length; i++){
-                line_data[i].Delay = parseInt(line_data[i].Delay) / parseInt(line_data[i].cpt);
+                line_data[i].Delay = parseInt(line_data[i].Delay) / parseInt(line_data[i].cpt + 1);
             }
             return line_data;
         }
@@ -724,12 +909,16 @@
                 "translate(" + margin.left + "," + margin.top + ")");
 
             // format the data
+            //2008-01-04T23:00:00.000Z
             line_data.forEach(function (d) {
-                d.Day = parseTime(d.Day);          
+                d.Day = parseTime(d.Day);    
                 d.Delay = +d.Delay;
             });
 
             line_data.sort(sortByDate);
+            line_data.splice(0, 1);            
+            //console.log(line_data);
+            
             line_date = agregateDate(line_data);
 
             // Scale the range of the data
@@ -779,12 +968,20 @@
                     i = bisectDate(line_data, x0, 1),
                     d0 = line_data[i - 1],
                     d1 = line_data[i],
-                    d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+                    d = x0 - d0.Day > d1.Day - x0 ? d1 : d0;
                 focus.attr("transform", "translate(" + x(d.Day) + "," + y(d.Delay) + ")");
                 focus.select("text").text(parseInt(d.Delay));
             }
         }
 
+        function clone(obj) {
+            if (null == obj || "object" != typeof obj) return obj;
+            var copy = obj.constructor();
+            for (var attr in obj) {
+                if (obj.hasOwnProperty(attr)) copy[attr] = obj[attr];
+            }
+            return copy;
+        }
 
     </script>
 </body>
