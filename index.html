@@ -519,6 +519,11 @@
             return (a.totalDelay > b.totalDelay) ? 0 : 1;
         }
 
+        //Trie par retard (decroissant)
+        function sortByDate(a, b) {
+            return (a.Day - b.Day < 0) ? 0 : 1;
+        }
+
         function buildPieData(companyName) {
             var pie_data = [];
             for (var i in json_companys) {
@@ -543,6 +548,9 @@
                     line_data = json_companys[i].DelayPerDay;
                     break;
                 }
+            }
+            for(var d in line_data){
+                line_data[d].cpt = 0;
             }
             return line_data;
         }
@@ -664,12 +672,37 @@
             return column;
         }
 
+        function agregateDate(line_data){
+            for(var j = 0; j < line_data.length - 1; j++){
+                size = line_data.length - 1;
+                for(var i = 0; i < size; i++){
+                    if(line_data[i].Day - line_data[i + 1].Day == 0){
+                        line_data[i].Delay = parseInt(line_data[i].Delay) + parseInt(line_data[i + 1].Delay);
+                        line_data[i].cpt += 1;
+                        line_data.splice(i + 1, 1);
+                        j = i - 1;
+                        break;
+                    }
+                }
+            }
+            for(var i = 0; i < line_data.length; i++){
+                line_data[i].Delay = parseInt(line_data[i].Delay) / parseInt(line_data[i].cpt);
+            }
+            return line_data;
+        }
+
         function drawLine(name, line_data, update = false) {
-            console.log(line_data);
             d3.selectAll("#line svg").remove();
 
+            var animationDuration = 400;
+            var t = d3.transition().duration(animationDuration);
+
             // parse the date / time
-            var parseTime = d3.timeParse("%d-%b-%y");
+            var parseTime = d3.timeParse("%d/%m/%Y");
+
+            var bisectDate = d3.bisector(function(d) { return d.Day; }).left,
+                formatValue = d3.format(",.2f"),
+                formatCurrency = function(d) { return "$" + formatValue(d); };
 
             // set the ranges
             var x = d3.scaleTime().range([0, width]);
@@ -690,24 +723,47 @@
                 .attr("transform",
                 "translate(" + margin.left + "," + margin.top + ")");
 
-
-
             // format the data
             line_data.forEach(function (d) {
-                d.Day = parseTime(d.Day);
-                //console.log(d.Day);                
+                d.Day = parseTime(d.Day);          
                 d.Delay = +d.Delay;
             });
+
+            line_data.sort(sortByDate);
+            line_date = agregateDate(line_data);
 
             // Scale the range of the data
             x.domain(d3.extent(line_data, function (d) { return d.Day; }));
             y.domain([0, d3.max(line_data, function (d) { return d.Delay; })]);
 
             // Add the valueline path.
-            svg.append("path")
+            var path = svg.append("path")
                 .data([line_data])
                 .attr("class", "line")
+                .attr("stroke", "steelblue")
+                .attr("stroke-width", "2")
+                .attr("fill", "none")
                 .attr("d", valueline);
+
+            var focus = svg.append("g")
+                .attr("class", "focus")
+                .style("display", "none");
+
+            focus.append("circle")
+                .attr("r", 4.5);
+
+            focus.append("text")
+                .attr("x", 9)
+                .attr("dy", ".35em");
+
+            svg.append("rect")
+                .attr("class", "overlay")
+                .attr("opacity", "0.0")
+                .attr("width", width)
+                .attr("height", height)
+                .on("mouseover", function() { focus.style("display", null); })
+                .on("mouseout", function() { focus.style("display", "none"); })
+                .on("mousemove", mousemove);
 
             // Add the X Axis
             svg.append("g")
@@ -718,7 +774,17 @@
             svg.append("g")
                 .call(d3.axisLeft(y));
 
+            function mousemove() {
+                var x0 = x.invert(d3.mouse(this)[0]),
+                    i = bisectDate(line_data, x0, 1),
+                    d0 = line_data[i - 1],
+                    d1 = line_data[i],
+                    d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+                focus.attr("transform", "translate(" + x(d.Day) + "," + y(d.Delay) + ")");
+                focus.select("text").text(parseInt(d.Delay));
+            }
         }
+
 
     </script>
 </body>
