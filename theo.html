@@ -1,0 +1,408 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Know your chart</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="static/assets/materialize/css/materialize.min.css"
+          media="screen,projection"/>
+    <!-- Bootstrap Styles-->
+    <link href="static/assets/css/bootstrap.css" rel="stylesheet"/>
+    <!-- FontAwesome Styles-->
+    <link href="static/assets/css/font-awesome.css" rel="stylesheet"/>
+    <!-- Custom Styles-->
+    <link href="static/assets/css/custom-styles.css" rel="stylesheet"/>
+    <!-- Google Fonts-->
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'/>
+</head>
+<style>
+    text {
+        font-size: 16pt;
+    }
+    .axis{
+        font-size: 3pt;
+    }
+</style>
+<body>
+<div id="wrapper">
+    <nav id="topBar" class="navbar navbar-default top-navbar" role="navigation">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".sidebar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand waves-effect waves-dark" href="/"><i class="large material-icons">insert_chart</i>
+                <strong>Air flight delay</strong></a>
+
+        </div>
+    </nav>
+    <div id="sideNav" href=""><i class="material-icons dp48">toc</i></div>
+</div>
+
+</nav>
+
+<nav class="navbar-default navbar-side" role="navigation">
+    <div class="sidebar-collapse">
+        <ul class="nav" id="main-menu">
+            <li>
+                <a class="active-menu waves-effect waves-dark" href="theo.html"><i class="fa fa-bar-chart-o"></i>
+                    Dataset exploration</a>
+            </li>
+            <li>
+                <a class="active-menu waves-effect waves-dark" href="mika.html"><i class="fa fa-bar-chart-o"></i>
+                    See the chart</a>
+            </li>
+            <li>
+                <a class="active-menu waves-effect waves-dark" href="miguel.html"><i class="fa fa-bar-chart-o"></i>
+                    Dataset selection</a>
+            </li>
+        </ul>
+
+    </div>
+</nav>
+<!-- /. NAV SIDE  -->
+<div id="page-wrapper">
+    <div class="header">
+        <h1 class="page-header">
+            Air flight delay in USA
+            <small> Theguael</small>
+        </h1>
+
+    </div>
+    <div id="page-inner">
+
+        <div class="row">
+
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-action">
+                        BLABLA
+                    </div>
+                    <div class="card-content">
+                        BLABLA
+                        <div class="clearBoth"><br/></div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-action">
+                        Day delay by traffic distribution(colorization by air traffic density)
+                    </div>
+                    <div style="text-align: center" class="card-content">
+
+                        <div style="display: inline-block;position: relative;width: 100%;vertical-align: middle" id="days">
+                            <svg viewBox="0 0 990 450"></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-action">
+                        Average delay by company (colorization by air traffic density)
+                    </div>
+                    <div class="card-content">
+                        <div style="display: inline-block;position: relative;width: 100%;vertical-align: middle" id="avg">
+                            <svg viewBox="0 0 990 450"></svg>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-action">
+                        Average delay each day of 2008
+                    </div>
+                    <div style="text-align: center" class="card-content">
+                        <div style="display: inline-block;position: relative;font-size: 10pt;width: 100%;vertical-align: middle"
+                             id="line">
+                            <svg viewBox="0 0 990 450"></svg>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- /. PAGE INNER  -->
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-action">
+                Average delay by company (colorization by air traffic density)
+            </div>
+            <div style="text-align: center" class="card-content">
+
+            </div>
+
+        </div>
+    </div>
+    <footer><p>Template by: <a href="https://webthemez.com/admin-template/">WebThemez.com</a></p></footer>
+
+    <!-- /. PAGE INNER  -->
+</div>
+
+<!-- /. PAGE WRAPPER  -->
+</div>
+<!-- /. WRAPPER  -->
+<!-- JS Scripts-->
+<!-- jQuery Js -->
+<script src="static/assets/js/jquery-1.10.2.js"></script>
+
+<!-- Bootstrap Js -->
+<script src="static/assets/js/bootstrap.min.js"></script>
+
+<script src="static/assets/materialize/js/materialize.min.js"></script>
+
+<!-- Metis Menu Js -->
+<script src="static/assets/js/jquery.metisMenu.js"></script>
+
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script>
+    var margin3 = {top: 20, right: 20, bottom: 30, left: 50},
+        width3 = 990 - margin3.left - margin3.right,
+        height3 = 450 - margin3.top - margin3.bottom;
+
+    var svg3 = d3.select("#line svg");
+
+
+    g = svg3.append("g").attr("transform", "translate(" + margin3.left + "," + margin3.top + ")");
+
+    var parseTime = d3.timeParse("%d-%m-%Y");
+
+    var x3= d3.scaleTime()
+        .rangeRound([0, width3]);
+
+    var y3 = d3.scaleLinear()
+        .rangeRound([height3, 0]);
+
+    var line = d3.line()
+        .x(function (d) {
+            return x3(d.date);
+        })
+        .y(function (d) {
+            return y3(d.avg);
+        });
+
+    d3.csv("LineDataSave.csv", function (d) {
+        d.date = parseTime(d.date);
+        d.avg = +d.avg;
+        return d;
+    }, function (error, data) {
+        if (error) throw error;
+
+        x3.domain(d3.extent(data, function (d) {
+            return d.date;
+        }));
+        y3.domain(d3.extent(data, function (d) {
+            return d.avg;
+        }));
+
+        g.append("g")
+            .attr("fill", "#000")
+            .attr("transform", "translate(0," + height3 + ")")
+            .call(d3.axisBottom(x3))
+            .select(".domain");
+
+        g.append("g")
+            .call(d3.axisLeft(y3))
+            .append("text")
+            .attr("fill", "#000")
+            .attr("transform", "rotate(-90)")
+            .attr("y", 6)
+            .attr("dy", "0.71em")
+            .attr("text-anchor", "end")
+            .text("Avg Delay (min)");
+
+        g.append("path")
+            .datum(data)
+            .attr("fill", "none")
+            .attr("stroke", "steelblue")
+            .attr("stroke-linejoin", "round")
+            .attr("stroke-linecap", "round")
+            .attr("stroke-width", 1.5)
+            .attr("d", line);
+    });
+
+</script>
+
+<script>
+
+    // set the dimensions and margins of the graph
+    var margin1 = {top: 20, right: 20, bottom: 30, left: 40},
+        width1 = 960 - margin1.left - margin1.right,
+        height1 = 500 - margin1.top - margin1.bottom;
+
+    var color = d3.scaleLinear()
+        .domain([0, 20])
+        .range(["rgb(255, 100, 0)", "rgb(0, 100, 255)"]);
+
+    // set the ranges
+    var x1 = d3.scaleBand()
+        .range([0, width1])
+        .padding(0.1);
+    var y1 = d3.scaleLinear()
+        .range([height1, 0]);
+
+    // append the svg object to the body of the page
+    // append a 'group' element to 'svg'
+    // moves the 'group' element to the top left margin
+    var svg1 = d3.select("#avg svg");
+
+        g3 = svg1.append("g")
+        .attr("transform",
+            "translate(" + margin1.left + "," + margin1.top + ")");
+
+    // get the data
+    d3.csv("Result.csv", function (error, data) {
+        if (error) throw error;
+        // format the data
+        data.forEach(function (d) {
+            d.avg = +d.avg;
+        });
+
+        // Scale the range of the data in the domains
+        x1.domain(data.map(function (d) {
+            return d.comp;
+        }));
+        y1.domain([0, d3.max(data, function (d) {
+            return d.avg;
+        })]);
+
+
+        var color = d3.scaleLinear()
+            .domain([0, d3.max(data, function (d) {
+                return d.nb;
+            })])
+            .range(["rgb(167,173,186)", "rgb(52,61,70)"]);
+
+        // append the rectangles for the bar chart
+        g3.selectAll(".bar")
+            .data(data)
+            .enter().append("rect")
+            .attr("class", "bar")
+            .attr("x", function (d) {
+                return x1(d.comp);
+            })
+            .attr("width", x1.bandwidth())
+            .attr("y", function (d) {
+                return y1(d.avg);
+            })
+            .attr("fill", function (d) {
+                return color(d.nb);
+            })
+            .attr("height", function (d) {
+                return height1 - y1(d.avg);
+            });
+
+        // add the x Axis
+
+        g3.append("g")
+            .attr("transform", "translate(0," + -20 + ")")
+            .call(d3.axisBottom(x1))
+        .select(".domain");
+
+        // add the y Axis
+        g3.append("g")
+            .call(d3.axisLeft(y1));
+
+    });
+
+</script>
+
+<script>
+
+    // set the dimensions and margins of the graph
+    var margin = {top: 20, right: 20, bottom: 30, left: 40},
+        width = 960 - margin.left - margin.right,
+        height = 500 - margin.top - margin.bottom;
+
+    // set the ranges
+    var x = d3.scaleBand()
+        .range([0, width])
+        .padding(0.1);
+    var y = d3.scaleLinear()
+        .range([height, 0]);
+
+    // append the svg object to the body of the page
+    // append a 'group' element to 'svg'
+    // moves the 'group' element to the top left margin
+    var svg = d3.select("#days svg");
+
+   g2= svg.append("g")
+        .attr("transform",
+            "translate(" + margin.left + "," + margin.top + ")");
+
+    // get the data
+    d3.csv("third.csv", function (error, data) {
+        if (error) throw error;
+        // format the data
+        data.forEach(function (d) {
+            d.avg = +d.avg;
+        });
+
+        // Scale the range of the data in the domains
+        x.domain(data.map(function (d) {
+            return d.day;
+        }));
+        y.domain([0, d3.max(data, function (d) {
+            return d.avg;
+        })]);
+
+
+        var color = d3.scaleLinear()
+            .domain([0, d3.max(data, function (d) {
+                return d.nb;
+            })])
+            .range(["rgb(167,173,186)", "rgb(52,61,70)"]);
+
+        // append the rectangles for the bar chart
+        g2.selectAll(".bar0")
+            .data(data)
+            .enter().append("rect")
+            .attr("class", "bar0")
+            .attr("x", function (d) {
+                return x(d.day);
+            })
+            .attr("width", x.bandwidth())
+            .attr("y", function (d) {
+                return y(d.avg);
+            })
+            .attr("fill", function (d) {
+                return color(d.nb);
+            })
+            .attr("height", function (d) {
+                return height - y(d.avg);
+            });
+
+        // add the x Axis
+        g2.append("g")
+            .attr("transform", "translate(0," + -20 + ")")
+            .call(d3.axisBottom(x))
+        .select(".domain");
+
+        // add the y Axis
+        g2.append("g")
+            .call(d3.axisLeft(y));
+
+    });
+
+</script>
+
+</body>
+
+</html>
