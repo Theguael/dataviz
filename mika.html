@@ -97,11 +97,15 @@
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-action">
-                        BLABLABLA
+                        Temporal agregation
                     </div>
                     <div class="card-content">
-                        BLABLABLA
-
+                        This chart allow to pick a time interval to visualize the mean delay and the reasons of this delay per carrier. It join all data on a time interval 
+                        to detect tendencys and patterns easily.</br>
+                        To illustrate, this chart make it possible to detect patterns through carrier's delay.<br/>
+                        Eache circle on the bubble chart is a carrier in the USA.<br/>
+                        You can drag and zoom the bubble chart to visualize more precisely the data. You can also put the cursor of the mouse 
+                        on the circles to see their mean delay and click on it to learn more information on the carriers.
                     </div>
                 </div>
             </div>
@@ -126,7 +130,7 @@
                     </div>
                 </div>
             </div>
-            <div id="vispi" style="visibility: hidden" class="col-md-4">
+            <div id="vispi" style="visibility: hidden" class="col-md-5">
                 <div class="card" style="padding-bottom: -20%">
                     <div class="card-action">
                         Delay distribution
@@ -135,7 +139,7 @@
                         <div id="pie"
                              style="display: inline-block;position: relative;width: 100%;vertical-align: middle">
                         </div>
-                        <div style="margin-top: -40%;padding: 0" id="line">
+                        <div style="margin-top: -10%;padding: 0" id="line">
                         </div>
                     </div>
                 </div>
@@ -164,340 +168,391 @@
 <script src="https://d3js.org/d3.v4.min.js"></script>
 <script src="./static/assets/js/nouislider.js"></script>
 
-<script>
-    var COMPANY_TO_FOLLOW = undefined;
-    //pour le hover
-    var tooltip = d3.select('body').append('div')
-        .attr('class', 'hidden tooltip');
+    <script>
+        var preProperMonth = {};
+        var preProcessed = {};
+        var preProcessedPerMonth = {};
+        var COMPANY_TO_FOLLOW = undefined;
+        //pour le hover
+        var tooltip = d3.select('body').append('div')
+            .attr('class', 'hidden tooltip');
 
-    // set the dimensions and margins of the graph
-    var margin = {top: 50, right: 50, bottom: 50, left: 100},
-        width = 800 - margin.left - margin.right,
-        height = 400 - margin.top - margin.bottom,
-        pie_width = 400 - margin.left - margin.right,
-        pie_height = 400 - margin.top - margin.bottom,
-        line_width = 500 - margin.left - margin.right,
-        line_height = 500 - margin.top - margin.bottom;
+        // set the dimensions and margins of the graph
+        var margin = { top: 50, right: 50, bottom: 50, left: 100 },
+            width = 800 - margin.left - margin.right,
+            height = 500 - margin.top - margin.bottom,
+            pie_width = 450 - margin.left - margin.right,
+            pie_height = 450 - margin.top - margin.bottom;
+            line_width = 700 - margin.left - margin.right,
+            line_height = 500 - margin.top - margin.bottom;
 
-    var color = [];
-    var xScale = 0, yScale = 0, dx = 0, dy = 0, xAxis = 0, yAxis = 0;
+        var color = [];
+        var xScale = 0, yScale = 0, dx = 0, dy = 0, xAxis = 0, yAxis = 0;
 
-    var names = [];
-    var color = d3.scaleLinear()
-        .domain([0, names.length])
-        .range(["rgb(255, 100, 0)", "rgb(0, 100, 255)"])
-        .interpolate(d3.interpolateHcl);
-
-    //,Year,Month,DayofMonth,DayOfWeek,DepTime,CRSDepTime,ArrTime,CRSArrTime,UniqueCarrier,FlightNum,TailNum,ActualElapsedTime,CRSElapsedTime,AirTime,ArrDelay,DepDelay,Origin,Dest,Distance,TaxiIn,TaxiOut,Cancelled,CancellationCode,Diverted,CarrierDelay,WeatherDelay,NASDelay,SecurityDelay,LateAircraftDelay
-
-    // append the svg obgect to the body of the page
-    // appends a 'group' element to 'svg'
-    // moves the 'group' element to the top left margin
-    var svg = d3.select("#bubble").append("svg")
-    /*  .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)*/
-        .attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
-        .call(d3.zoom().on("zoom", zoomFunction))
-        .append("g")
-        .attr("transform",
-            "translate(" + margin.left + "," + margin.top + ")");
-
-    var bubble_width = width;
-    var bubble_height = height;
-
-    var oldPieChart = undefined;
-    var oldPieData = undefined;
-    var radius = Math.min(pie_width, pie_height) / 2;
-    var radiusScale = d3.scaleSqrt()
-        .range([0, radius])
-        .domain([0, 110]);
-
-    var toProcess = [];
-    var json_companys = [];
-
-    d3.csv("data_22.csv", function (data) {
-        //PARAMETRE A MODIFIER PAR SLIDER
-        var y_min = 2008, y_max = 2008, m_min = 1, m_max = 12, dm_min = 0, dm_max = 31;
-
-        // When the slider value changes, update the input and span
-        sliderMonth.noUiSlider.on('update', function (values, handle) {
-            m_min = parseInt(values[0]);
-            m_max = parseInt(values[1]);
-            parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
-            json_companys.sort(sortByDelay);
-            getNewAxis();
-            updateAxis();
-            if (COMPANY_TO_FOLLOW != undefined) {
-                var pie_data = buildPieData(COMPANY_TO_FOLLOW);
-                var line_data = buildLineData(COMPANY_TO_FOLLOW);
-                drawPie(COMPANY_TO_FOLLOW, pie_data, true);
-                drawLine(COMPANY_TO_FOLLOW, line_data, true);
-            }
-            updateBubble(json_companys);
-        });
-        sliderDayMonth.noUiSlider.on('update', function (values, handle) {
-            dm_min = parseInt(values[0]);
-            dm_max = parseInt(values[1]);
-            parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
-            json_companys.sort(sortByDelay);
-            getNewAxis();
-            updateAxis();
-            if (COMPANY_TO_FOLLOW != undefined) {
-                var pie_data = buildPieData(COMPANY_TO_FOLLOW);
-                var line_data = buildLineData(COMPANY_TO_FOLLOW);
-                drawPie(COMPANY_TO_FOLLOW, pie_data, true);
-                drawLine(COMPANY_TO_FOLLOW, line_data, true);
-            }
-            updateBubble(json_companys);
-        });
-
-        parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
-
-        getNewAxis();
-
-        // Add the y Axis
-        dy = svg.append("g")
-            .attr("class", "y axis")
-            .call(yAxis)
-            .select(".domain");
-
-        // Add the x Axis
-        dx = svg.append("g")
-            .attr("class", "x axis")
-            .attr("transform", "translate(0," + height + ")")
-            .call(xAxis)
-            .select(".domain");
-
-        for (var c in companys) {
-            names.push(c);
-        }
-
-        color = d3.scaleLinear()
-            .domain([0, 25])
+        var names = [];
+        var color = d3.scaleLinear()
+            .domain([0, names.length])
             .range(["rgb(255, 100, 0)", "rgb(0, 100, 255)"])
             .interpolate(d3.interpolateHcl);
 
-        var max = d3.max(json_companys, function (d) {
-            return parseInt(d.totalDelay);
-        }) + 1;
-        var min = d3.min(json_companys, function (d) {
-            return parseInt(d.totalDelay);
-        });
+        //,Year,Month,DayofMonth,DayOfWeek,DepTime,CRSDepTime,ArrTime,CRSArrTime,UniqueCarrier,FlightNum,TailNum,ActualElapsedTime,CRSElapsedTime,AirTime,ArrDelay,DepDelay,Origin,Dest,Distance,TaxiIn,TaxiOut,Cancelled,CancellationCode,Diverted,CarrierDelay,WeatherDelay,NASDelay,SecurityDelay,LateAircraftDelay
 
-        draw();
-    });
+        // append the svg obgect to the body of the page
+        // appends a 'group' element to 'svg'
+        // moves the 'group' element to the top left margin
+        var svg = d3.select("#bubble").append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .call(d3.zoom().on("zoom", zoomFunction))
+            .append("g")
+            .attr("transform",
+            "translate(" + margin.left + "," + margin.top + ")");
 
-    var lastTk = 1, lastTx = 0, lastTy = 1;
+        var bubble_width = width;
+        var bubble_height = height;
 
-    function zoomFunction() {
-        //Limiter le zoom
-        var t = d3.event.transform;
+        var oldPieChart = undefined;
+        var oldPieData = undefined;
+        var radius = Math.min(pie_width, pie_height) / 2;
+        var radiusScale = d3.scaleSqrt()
+            .range([0, radius])
+            .domain([0, 110]);
 
-        var max_zoom = 5;
-        var min_zoom = 0.6;
-        if (t.k > max_zoom) {
-            t.k = lastTk;
-            t.x = lastTx;
-            t.y = lastTy;
-        }
-        if (t.k < min_zoom) {
-            t.k = lastTk;
-            t.x = lastTx;
-            t.y = lastTy;
-        }
+        var toProcess = [];
+        var json_companys = [];
+        var companys = {};
 
-        // create new scale ojects based on event
-        var new_xScale = d3.event.transform.rescaleX(xScale);
-        var new_yScale = d3.event.transform.rescaleY(yScale);
+        d3.csv("merged.csv", function (data) {
+            fillPreProcessed(data);
+            //PARAMETRE A MODIFIER PAR SLIDER
+            var y_min = 2008, y_max = 2008, m_min = 1, m_max = 12, dm_min = 1, dm_max = 31;
 
-        // update circle
-        svg.attr("transform", d3.event.transform);
-
-        if (lastTk != t.k) {
-            //draw(t);
-            updateBubble(json_companys, t);
-        }
-        else {
-            updateTooltip(t);
-        }
-
-        lastTk = t.k;
-        lastTx = t.x;
-        lastTy = t.y;
-    };
-
-    function draw(t = undefined) {
-        var max = d3.max(json_companys, function (d) {
-            return parseInt(d.totalDelay);
-        }) + 1;
-        var min = d3.min(json_companys, function (d) {
-            return parseInt(d.totalDelay);
-        });
-
-        //svg.selectAll("circle").remove();
-        //Dessine les cercles
-        svg.selectAll(".companys")
-            .data(json_companys)
-            .enter()
-            .append("circle")
-            .attr("cx", function (d) {
-                return xScale(d.Distance);
-            })
-            .attr("cy", function (d) {
-                return yScale(d.ActualElapsedTime);
-            })
-            .attr("r", function (d) {
-                var div = lastTk;
-                if (t != undefined)
-                    div = t.k;
-                var r = rescaler(parseInt(d.totalDelay), min, max, 10 / div, 25 / div);
-                return r;
-            })
-            .attr("fill", function (d, i) {
-                return color(i);
-            })
-            .attr("stroke", "black")
-            .attr("stroke-width", function (d) {
-                var div = lastTk;
-                if (t != undefined)
-                    div = t.k;
-                if (d.name == COMPANY_TO_FOLLOW) {
-                    return 8 / div;
-                }
-                return 1 / div;
-            })
-            .on('mousemove', function (d) {
-                d3.select(this).style("cursor", "pointer");
-                var mouse = d3.mouse(svg.node()).map(function (d) {
-                    return parseInt(d);
-                });
-
-                tooltip.classed('hidden', false)
-                    .attr('style', 'left:' + (mouse[0]) +
-                        'px; top:' + (mouse[1]) + 'px', 'position: absolute;')
-                    .html(function (i) {
-                        return d.name + ", retard moyen : " + parseInt(d.totalDelay) + " mn";
-                    });
-            })
-            .on('mouseout', function () {
-                d3.select(this).style("cursor", "default");
-                tooltip.classed('hidden', true);
-            })
-            .on("click", function (d) {
-
-                if (COMPANY_TO_FOLLOW === d.name) {
-                    COMPANY_TO_FOLLOW = undefined;
-                    $("#pie svg").fadeOut(300);
-                    $("#bub").fadeIn(150);
-                    $("#bub").toggleClass("col-md-8 col-md-12");
-                    $("#vispi").css("visibility", "hidden")
-                }
-                else {
-                    COMPANY_TO_FOLLOW = d.name;
+            // When the slider value changes, update the input and span
+            sliderMonth.noUiSlider.on('update', function (values, handle) {
+                m_min = parseInt(values[0]);
+                m_max = parseInt(values[1]);
+                fastParseData(m_min, m_max, dm_min, dm_max);
+                json_companys.sort(sortByDelay);
+                getNewAxis();
+                updateAxis();
+                if (COMPANY_TO_FOLLOW != undefined) {
                     var pie_data = buildPieData(COMPANY_TO_FOLLOW);
                     var line_data = buildLineData(COMPANY_TO_FOLLOW);
                     drawPie(COMPANY_TO_FOLLOW, pie_data, true);
                     drawLine(COMPANY_TO_FOLLOW, line_data, true);
-                    $("#bub").fadeIn(150);
-                    if ($("#bub").hasClass("col-md-12")) {
-                        $("#bub").toggleClass("col-md-12 col-md-8");
-                    }
-                    $("#vispi").css("visibility", "visible")
-
-
                 }
                 updateBubble(json_companys);
             });
-    }
+            sliderDayMonth.noUiSlider.on('update', function (values, handle) {
+                dm_min = parseInt(values[0]);
+                dm_max = parseInt(values[1]);
+                fastParseData(m_min, m_max, dm_min, dm_max);
+                json_companys.sort(sortByDelay);
+                getNewAxis();
+                updateAxis();
+                if (COMPANY_TO_FOLLOW != undefined) {
+                    var pie_data = buildPieData(COMPANY_TO_FOLLOW);
+                    var line_data = buildLineData(COMPANY_TO_FOLLOW);
+                    drawPie(COMPANY_TO_FOLLOW, pie_data, true);
+                    drawLine(COMPANY_TO_FOLLOW, line_data, true);
+                }
+                updateBubble(json_companys);
+            });
 
-    function updateBubble(json_companys, t = undefined) {
-        var max = parseInt(d3.max(json_companys, function (d) {
-            return parseInt(d.totalDelay);
-        }) + 1);
-        var min = parseInt(d3.min(json_companys, function (d) {
-            return parseInt(d.totalDelay);
-        }));
 
-        var svg = d3.select("#bubble svg");
-        var animationDuration = 400;
-        var tr = d3.transition().duration(animationDuration);
+            fastParseData(m_min, m_max, dm_min, dm_max);
+            //parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max);
 
-        //Dessine les cercles
-        svg.selectAll("circle")
-            .transition(tr)
-            .attr("cx", function (d) {
-                return xScale(d.Distance);
-            })
-            .attr("cy", function (d) {
-                return yScale(d.ActualElapsedTime);
-            })
-            .attr("r", function (d) {
-                if (isNaN(min) || isNaN(max))
-                    return 0;
-                var found = false;
-                for (var currd in json_companys) {
-                    if (d.name == json_companys[currd].name) {
-                        found = true;
+            getNewAxis();
+
+            // Add the y Axis
+            dy = svg.append("g")
+                .attr("class", "y axis")
+                .call(yAxis)
+                .select(".domain");
+
+            // Add the x Axis
+            dx = svg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(0," + height + ")")
+                .call(xAxis)
+                .select(".domain");
+
+            for (var c in companys) {
+                names.push(c);
+            }
+
+            color = d3.scaleLinear()
+                .domain([0, 25])
+                .range(["rgb(255, 100, 0)", "rgb(0, 100, 255)"])
+                .interpolate(d3.interpolateHcl);
+
+            var max = d3.max(json_companys, function (d) { return parseInt(d.totalDelay); }) + 1;
+            var min = d3.min(json_companys, function (d) { return parseInt(d.totalDelay); });
+
+            draw();
+        });
+
+        var lastTk = 1, lastTx = 0, lastTy = 1;
+        function zoomFunction() {
+            //Limiter le zoom
+            var t = d3.event.transform;
+
+            var max_zoom = 5;
+            var min_zoom = 0.6;
+            if (t.k > max_zoom) {
+                t.k = lastTk;
+                t.x = lastTx;
+                t.y = lastTy;
+            }
+            if (t.k < min_zoom) {
+                t.k = lastTk;
+                t.x = lastTx;
+                t.y = lastTy;
+            }
+
+            // create new scale ojects based on event
+            var new_xScale = d3.event.transform.rescaleX(xScale)
+            var new_yScale = d3.event.transform.rescaleY(yScale)
+
+            // update circle
+            svg.attr("transform", d3.event.transform);
+
+            if (lastTk != t.k) {
+                //draw(t);
+                updateBubble(json_companys, t);
+            }
+            else {
+                updateTooltip(t);
+            }
+
+            lastTk = t.k;
+            lastTx = t.x;
+            lastTy = t.y;
+        };
+
+        function draw(t = undefined) {
+            var max = d3.max(json_companys, function (d) { return parseInt(d.totalDelay); }) + 1;
+            var min = d3.min(json_companys, function (d) { return parseInt(d.totalDelay); });
+
+            //svg.selectAll("circle").remove();
+            //Dessine les cercles
+            svg.selectAll(".companys")
+                .data(json_companys)
+                .enter()
+                .append("circle")
+                .attr("cx", function (d) { return xScale(d.Distance); })
+                .attr("cy", function (d) { return yScale(d.ActualElapsedTime); })
+                .attr("r", function (d) {
+                    var div = lastTk;
+                    if (t != undefined)
+                        div = t.k;
+                    var r = rescaler(parseInt(d.totalDelay), min, max, 10 / div, 25 / div);
+                    return r;
+                })
+                .attr("fill", function (d, i) {
+                    return color(i);
+                })
+                .attr("stroke", "black")
+                .attr("stroke-width", function (d) {
+                    var div = lastTk;
+                    if (t != undefined)
+                        div = t.k;
+                    if (d.name == COMPANY_TO_FOLLOW) {
+                        return 8 / div;
+                    }
+                    return 1 / div;
+                })
+                .on('mousemove', function (d) {
+                    d3.select(this).style("cursor", "pointer");
+                    var mouse = d3.mouse(svg.node()).map(function (d) {
+                        return parseInt(d);
+                    });
+                    var v = 1;
+                    var vy = 1;
+                    var vx = 1;
+                    if(t != undefined){
+                        v = t.k;
+                        vy = t.y;
+                        vx = t.x;
+                    }
+                    tooltip.classed('hidden', false)
+                        .attr('style', 'left:' + (mouse[0] + 320 + vx ) +
+                        'px; top:' + (mouse[1] + 500 + vy) + 'px', 'position: absolute;')
+                        .html(function (i) {
+                            return d.name + ", mean delay : " + parseInt(d.totalDelay) + " mn";
+                        });
+                })
+                .on('mouseout', function () {
+                    d3.select(this).style("cursor", "default");
+                    tooltip.classed('hidden', true);
+                })
+                .on("click", function (d) {
+                        if (COMPANY_TO_FOLLOW === d.name) {
+                            COMPANY_TO_FOLLOW = undefined;
+                            $("#pie svg").fadeOut(300);
+                            $("#line svg").fadeOut(300);
+                            $("#bub").fadeIn(150);
+                            $("#bub").toggleClass("col-md-7 col-md-12");
+                            $("#vispi").css("visibility", "hidden")
+                        }
+                        else {
+                            COMPANY_TO_FOLLOW = d.name;
+                            var pie_data = buildPieData(COMPANY_TO_FOLLOW);
+                            var line_data = buildLineData(COMPANY_TO_FOLLOW);
+                            drawPie(COMPANY_TO_FOLLOW, pie_data, true);
+                            drawLine(COMPANY_TO_FOLLOW, line_data, true);
+                            $("#bub").fadeIn(150);
+                            if ($("#bub").hasClass("col-md-12")) {
+                                $("#bub").toggleClass("col-md-12 col-md-7");
+                            }
+                            $("#vispi").css("visibility", "visible")
+                        }
+                    updateBubble(json_companys);
+
+                });
+        }
+
+        function updateBubble(json_companys, t = undefined) {
+            var max = parseInt(d3.max(json_companys, function (d) { return parseInt(d.totalDelay); }) + 1);
+            var min = parseInt(d3.min(json_companys, function (d) { return parseInt(d.totalDelay); }));
+
+            var svg = d3.select("#bubble svg");
+            var animationDuration = 400;
+            var tr = d3.transition().duration(animationDuration);
+
+
+            svg.selectAll("circle").exit().remove();
+                
+            //Dessine les cercles
+            svg.selectAll("circle")
+                .transition(tr)
+                .attr("cx", function (d) { return xScale(d.Distance); })
+                .attr("cy", function (d) { return yScale(d.ActualElapsedTime); })
+                .attr("r", function (d) {
+                    if (isNaN(min) || isNaN(max))
+                        return 0;
+                    var found = false;
+                    var delay = 0;
+                    for (var currd in json_companys) {
+                        if (d.name == json_companys[currd].name) {
+                            found = true;
+                            delay = json_companys[currd].totalDelay;
+                        }
+                    }
+                    if (!found)
+                        return 0;
+                    var div = lastTk;
+                    if (t != undefined)
+                        div = t.k;
+                    var r = rescaler(parseInt(delay), min, max, 10 / div, 25 / div);
+                    return r;
+                })
+                .attr("fill", function (d, i) {
+                    return color(i);
+                })
+                .attr("stroke", "black")
+                .attr("stroke-width", function (d) {
+                    var div = lastTk;
+                    if (t != undefined)
+                        div = t.k;
+                    if (d.name == COMPANY_TO_FOLLOW) {
+                        return 8 / div;
+                    }
+                    return 1 / div;
+                });
+        }
+
+        function updateTooltip(t) {
+            svg.select("g").selectAll("circle").exit().remove();
+
+            svg.selectAll("circle")
+                .on('mousemove', function (d) {
+                    d3.select(this).style("cursor", "pointer");
+                    var mouse = d3.mouse(svg.node()).map(function (d) {
+                        return parseInt(d);
+                    });
+
+                    var delay = 0;
+                    for (var currd in json_companys) {
+                        if (d.name == json_companys[currd].name) {
+                            found = true;
+                            delay = json_companys[currd].totalDelay;
+                        }
+                    }
+                    
+                    tooltip.classed('hidden', false)
+                        .attr('style', 'left:' + ((mouse[0] + 320 + t.x) + 50 * Math.exp((t.k - 1) / 2)) +
+                        'px; top:' + ((mouse[1] + 500 + t.y) * Math.exp((t.k - 1) / 5)) + 'px', 'position: absolute;')
+                        .html(function (i) {
+                            return d.name + ", mean delay : " + parseInt(delay) + " mn";
+                        });
+                })
+                .on('mouseout', function () {
+                    d3.select(this).style("cursor", "default");
+                    tooltip.classed('hidden', true);
+                });
+        }
+
+        function preProcessMonths(preProcessed){
+            var parseTime = d3.timeParse("%d/%m/%Y");
+            for(var day in preProcessed){
+                for(var carrier in preProcessed[day]){
+                    var date = parseTime(day);
+                    if(preProperMonth[date.getMonth()] == undefined)
+                        preProperMonth[date.getMonth()] = {};
+                    if(preProperMonth[date.getMonth()][carrier] == undefined)
+                        preProperMonth[date.getMonth()][carrier] = {
+                                "name": preProcessed[day][carrier].name,
+                                "Distance": parseInt(preProcessed[day][carrier].Distance),
+                                "ActualElapsedTime": parseInt(preProcessed[day][carrier].ActualElapsedTime),
+                                "totalDelay": parseInt(preProcessed[day][carrier].totalDelay),
+                                "CarrierDelay": parseInt(preProcessed[day][carrier].CarrierDelay),
+                                "WeatherDelay": parseInt(preProcessed[day][carrier].WeatherDelay),
+                                "NASDelay": parseInt(preProcessed[day][carrier].NASDelay),
+                                "SecurityDelay": parseInt(preProcessed[day][carrier].SecurityDelay),
+                                "LateAircraftDelay": parseInt(preProcessed[day][carrier].LateAircraftDelay),
+                                "Cancelled": parseInt(preProcessed[day][carrier].Cancelled),
+                                "Diverted": parseInt(preProcessed[day][carrier].Diverted),
+                                "DelayPerDay": [],
+                                "cpt": 1
+                            };
+                    else{
+                        preProperMonth[date.getMonth()][carrier].Distance += parseInt(preProcessed[day][carrier].Distance);
+                        preProperMonth[date.getMonth()][carrier].ActualElapsedTime += parseInt(preProcessed[day][carrier].ActualElapsedTime);
+                        preProperMonth[date.getMonth()][carrier].totalDelay += parseInt(preProcessed[day][carrier].totalDelay);
+                        preProperMonth[date.getMonth()][carrier].CarrierDelay += parseInt(preProcessed[day][carrier].CarrierDelay);
+                        preProperMonth[date.getMonth()][carrier].WeatherDelay += parseInt(preProcessed[day][carrier].WeatherDelay);
+                        preProperMonth[date.getMonth()][carrier].NASDelay += parseInt(preProcessed[day][carrier].NASDelay);
+                        preProperMonth[date.getMonth()][carrier].SecurityDelay += parseInt(preProcessed[day][carrier].SecurityDelay);
+                        preProperMonth[date.getMonth()][carrier].LateAircraftDelay += parseInt(preProcessed[day][carrier].LateAircraftDelay);
+                        preProperMonth[date.getMonth()][carrier].Cancelled += parseInt(preProcessed[day][carrier].Cancelled);
+                        preProperMonth[date.getMonth()][carrier].Diverted += parseInt(preProcessed[day][carrier].Diverted);
+                        for(var datetmp in preProcessed[day][carrier].DelayPerDay){
+                            if(preProcessed[day][carrier].DelayPerDay[datetmp].Day != null){
+                                preProperMonth[date.getMonth()][carrier].DelayPerDay.push({"Delay": parseInt(preProcessed[day][carrier].DelayPerDay[datetmp].Delay), "Day": preProcessed[day][carrier].DelayPerDay[datetmp].Day});
+
+                            }
+                        }
+
+                        preProperMonth[date.getMonth()][carrier].cpt += parseInt(preProcessed[day][carrier].cpt);
                     }
                 }
-                if (!found)
-                    return 0;
-                var div = lastTk;
-                if (t != undefined)
-                    div = t.k;
-                var r = rescaler(parseInt(d.totalDelay), min, max, 10 / div, 25 / div);
-                return r;
-            })
-            .attr("fill", function (d, i) {
-                return color(i);
-            })
-            .attr("stroke", "black")
-            .attr("stroke-width", function (d) {
-                var div = lastTk;
-                if (t != undefined)
-                    div = t.k;
-                if (d.name == COMPANY_TO_FOLLOW) {
-                    return 8 / div;
-                }
-                return 1 / div;
-            });
-    }
+            }
+        }
 
-    function updateTooltip(t) {
-        svg.selectAll("circle")
-            .on('mousemove', function (d) {
-                d3.select(this).style("cursor", "pointer");
-                var mouse = d3.mouse(svg.node()).map(function (d) {
-                    return parseInt(d);
-                });
-                var minus = lastTy;
+        function fillPreProcessed(data){
+            for (var d = 0; d < data.length; d += 1) {
+                var date = undefined;
+                if (data[d].DayofMonth != "" && data[d].Month != "" && data[d].Year != ""){
+                    date = data[d].DayofMonth + "/" + data[d].Month + "/" + data[d].Year;
+                    
+                    if (preProcessed[date] == undefined)
+                        preProcessed[date] = {};
+                        
 
-                tooltip.classed('hidden', false)
-                    .attr('style', 'left:' + (mouse[0] + t.x / t.k) +
-                        'px; top:' + (mouse[1] + t.y / 2) + 'px', 'position: absolute;')
-                    .html(function (i) {
-                        return d.name + ", retard moyen : " + parseInt(d.totalDelay) + " mn";
-                    });
-            })
-            .on('mouseout', function () {
-                d3.select(this).style("cursor", "default");
-                tooltip.classed('hidden', true);
-            });
-    }
-
-    function parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max) {
-        companys = {};
-        json_companys = [];
-        //Agregation de données par companies
-        for (var d = 0; d < data.length; d += 1) {
-            if (data[d].Month > m_max)
-                break;
-            if (data[d].Month >= m_min) {
-                if (data[d].Year >= y_min && data[d].Year <= y_max && data[d].Month >= m_min && data[d].Month <= m_max
-                    && data[d].DayofMonth >= dm_min && data[d].DayofMonth <= dm_max) {
-                    if (companys[data[d].UniqueCarrier] == undefined) {
+                    if (preProcessed[date][data[d].UniqueCarrier] == undefined) {
                         if (data[d].Distance != "" && data[d].ActualElapsedTime != "") {
-                            var date = undefined;
                             //Sécu pour ne pas prendre en compte les lignes où les données nous manque
                             if (data[d].ArrDelay == "")
                                 data[d].ArrDelay = 0;
@@ -515,10 +570,8 @@
                                 data[d].Cancelled = 0;
                             if (data[d].Diverted == "")
                                 data[d].Diverted = 0;
-                            if (data[d].DayofMonth != "" && data[d].Month != "" && data[d].Year != "")
-                                date = data[d].DayofMonth + "/" + data[d].Month + "/" + data[d].Year;
 
-                            companys[data[d].UniqueCarrier] = {
+                            preProcessed[date][data[d].UniqueCarrier] = {
                                 "Distance": parseInt(data[d].Distance),
                                 "ActualElapsedTime": parseInt(data[d].ActualElapsedTime),
                                 "totalDelay": parseInt(data[d].ArrDelay),
@@ -528,16 +581,16 @@
                                 "SecurityDelay": parseInt(data[d].SecurityDelay),
                                 "LateAircraftDelay": parseInt(data[d].LateAircraftDelay),
                                 "Cancelled": parseInt(data[d].Cancelled),
-                                "Diverted": parseInt(data[d].Cancelled),
+                                "Diverted": parseInt(data[d].Diverted),
                                 "DelayPerDay": [{"Delay": parseInt(data[d].ArrDelay), "Day": date}],
                                 "cpt": 1
                             };
+                            
                         }
                     }
                     else {
                         //Sécu pour ne pas prendre en compte les lignes où les données nous manque
                         if (data[d].Distance != "" && data[d].ActualElapsedTime != "") {
-                            var date = undefined;
                             //Rempli les données à 0 la où elles manquent dans le dataset
                             if (data[d].ArrDelay == "")
                                 data[d].ArrDelay = 0;
@@ -555,342 +608,709 @@
                                 data[d].Cancelled = 0;
                             if (data[d].Diverted == "")
                                 data[d].Diverted = 0;
-                            if (data[d].DayofMonth != "" && data[d].Month != "" && data[d].Year != "")
-                                date = data[d].DayofMonth + "/" + data[d].Month + "/" + data[d].Year;
 
-                            companys[data[d].UniqueCarrier].Distance += parseInt(data[d].Distance);
-                            companys[data[d].UniqueCarrier].ActualElapsedTime += parseInt(data[d].ActualElapsedTime);
-                            companys[data[d].UniqueCarrier].totalDelay += parseInt(data[d].ArrDelay);
-                            companys[data[d].UniqueCarrier].CarrierDelay += parseInt(data[d].CarrierDelay);
-                            companys[data[d].UniqueCarrier].WeatherDelay += parseInt(data[d].WeatherDelay);
-                            companys[data[d].UniqueCarrier].NASDelay += parseInt(data[d].NASDelay);
-                            companys[data[d].UniqueCarrier].SecurityDelay += parseInt(data[d].SecurityDelay);
-                            companys[data[d].UniqueCarrier].LateAircraftDelay += parseInt(data[d].LateAircraftDelay);
-                            companys[data[d].UniqueCarrier].Cancelled += parseInt(data[d].Cancelled);
-                            companys[data[d].UniqueCarrier].Diverted += parseInt(data[d].Cancelled);
-                            companys[data[d].UniqueCarrier].DelayPerDay.push({
-                                "Delay": parseInt(data[d].ArrDelay),
-                                "Day": date
-                            });
-                            companys[data[d].UniqueCarrier].cpt += 1;
+                            
+                            preProcessed[date][data[d].UniqueCarrier].Distance += parseInt(data[d].Distance);
+                            preProcessed[date][data[d].UniqueCarrier].ActualElapsedTime += parseInt(data[d].ActualElapsedTime);
+                            preProcessed[date][data[d].UniqueCarrier].totalDelay += parseInt(data[d].ArrDelay);
+                            preProcessed[date][data[d].UniqueCarrier].CarrierDelay += parseInt(data[d].CarrierDelay);
+                            preProcessed[date][data[d].UniqueCarrier].WeatherDelay += parseInt(data[d].WeatherDelay);
+                            preProcessed[date][data[d].UniqueCarrier].NASDelay += parseInt(data[d].NASDelay);
+                            preProcessed[date][data[d].UniqueCarrier].SecurityDelay += parseInt(data[d].SecurityDelay);
+                            preProcessed[date][data[d].UniqueCarrier].LateAircraftDelay += parseInt(data[d].LateAircraftDelay);
+                            preProcessed[date][data[d].UniqueCarrier].Cancelled += parseInt(data[d].Cancelled);
+                            preProcessed[date][data[d].UniqueCarrier].Diverted += parseInt(data[d].Diverted);
+                            preProcessed[date][data[d].UniqueCarrier].DelayPerDay.push({"Delay": parseInt(data[d].ArrDelay), "Day": date});
+                            preProcessed[date][data[d].UniqueCarrier].cpt += 1;
+                        }
+                    }               
+
+                }                
+            }
+            preProcessMonths(clone(preProcessed));
+        }
+
+        function fastParseData(m_min, m_max, dm_min, dm_max) {
+            companys = {};
+            json_companys = [];
+            var dataToProcess = [];
+            var clonePreProcessed = clone(preProcessed);
+            var clonePreProcessedMonth = jQuery.extend(true, {}, preProperMonth);
+
+            //S'il est plus long de faire la somme des stats / jour plutot que retirer les stats de chaque jour de la somme pour chaque mois
+            if(dm_max - dm_min < 15){
+                //Récupération des stats de chaque jours
+                for(var j = m_min; j <= m_max; j++){
+                    for(var i = dm_min; i <= dm_max; i++){
+                        date = parseInt(i) + "/" + parseInt(j) + "/2008";
+                        if(clonePreProcessed[date] != undefined){
+                            for(var pre in clonePreProcessed[date]){
+                                clonePreProcessed[date][pre].name = pre;
+                                dataToProcess.push(clone(clonePreProcessed[date][pre]));
+                                dataToProcess[dataToProcess.length - 1].DelayPerDay = clone(clonePreProcessed[date][pre].DelayPerDay);
+                            }
                         }
                     }
                 }
+                //Somme des jours
+                for(var i = 0; i < dataToProcess.length; i++){
+                    for(var j = 0; j < dataToProcess.length; j++){
+                        if(i != j && dataToProcess[i].name == dataToProcess[j].name){
+                            date = parseInt(i) + "/" + parseInt(j) + "/2008";
+                            dataToProcess[i].Distance += parseInt(dataToProcess[j].Distance);
+                            dataToProcess[i].ActualElapsedTime += parseInt(dataToProcess[j].ActualElapsedTime);
+                            dataToProcess[i].totalDelay += parseInt(dataToProcess[j].totalDelay);
+                            dataToProcess[i].CarrierDelay += parseInt(dataToProcess[j].CarrierDelay);
+                            dataToProcess[i].WeatherDelay += parseInt(dataToProcess[j].WeatherDelay);
+                            dataToProcess[i].NASDelay += parseInt(dataToProcess[j].NASDelay);
+                            dataToProcess[i].SecurityDelay += parseInt(dataToProcess[j].SecurityDelay);
+                            dataToProcess[i].LateAircraftDelay += parseInt(dataToProcess[j].LateAircraftDelay);
+                            dataToProcess[i].Cancelled += parseInt(dataToProcess[j].Cancelled);
+                            dataToProcess[i].Diverted += parseInt(dataToProcess[j].Cancelled);
+                            for(var datetmp in dataToProcess[j].DelayPerDay){
+                                if(dataToProcess[j].DelayPerDay[datetmp].Day != null)
+                                    dataToProcess[i].DelayPerDay.push({"Delay": parseInt(dataToProcess[j].DelayPerDay[datetmp].Delay), "Day": dataToProcess[j].DelayPerDay[datetmp].Day});
+                            }
+                            dataToProcess[i].cpt += parseInt(dataToProcess[j].cpt);
+                            dataToProcess.splice(j, 1);
+                            i = 0;
+                            break;
+                        }
+                    }
+                }
+                //Moyennes
+                for (var d in dataToProcess) {
+                    dataToProcess[d].totalDelay = parseInt(dataToProcess[d].totalDelay) / dataToProcess[d].cpt;
+                    dataToProcess[d].Distance = parseInt(dataToProcess[d].Distance) / dataToProcess[d].cpt;
+                    dataToProcess[d].ActualElapsedTime = parseInt(dataToProcess[d].ActualElapsedTime) / dataToProcess[d].cpt;
+                    dataToProcess[d].CarrierDelay = parseInt(dataToProcess[d].CarrierDelay) / dataToProcess[d].cpt;
+                    dataToProcess[d].WeatherDelay = parseInt(dataToProcess[d].WeatherDelay) / dataToProcess[d].cpt;
+                    dataToProcess[d].NASDelay = parseInt(dataToProcess[d].NASDelay) / dataToProcess[d].cpt;
+                    dataToProcess[d].SecurityDelay = parseInt(dataToProcess[d].SecurityDelay) / dataToProcess[d].cpt;
+                    dataToProcess[d].LateAircraftDelay = parseInt(dataToProcess[d].LateAircraftDelay) / dataToProcess[d].cpt;
+                    dataToProcess[d].Cancelled = parseInt(dataToProcess[d].Cancelled) / dataToProcess[d].cpt;
+                    dataToProcess[d].Diverted = parseInt(dataToProcess[d].Diverted) / dataToProcess[d].cpt;
+                }
+
+                for (var d in dataToProcess) {
+                    json_companys.push({
+                        "name": dataToProcess[d].name,
+                        "Distance": dataToProcess[d].Distance,
+                        "ActualElapsedTime": dataToProcess[d].ActualElapsedTime,
+                        "CarrierDelay": dataToProcess[d].CarrierDelay,
+                        "WeatherDelay": dataToProcess[d].WeatherDelay,
+                        "NASDelay": dataToProcess[d].NASDelay,
+                        "SecurityDelay": dataToProcess[d].SecurityDelay,
+                        "LateAircraftDelay": dataToProcess[d].LateAircraftDelay,
+                        "Cancelled": dataToProcess[d].Cancelled,
+                        "Diverted": dataToProcess[d].Diverted,
+                        "DelayPerDay": clone(dataToProcess[d].DelayPerDay),
+                        "totalDelay": dataToProcess[d].totalDelay
+                    });
+                    companys[d] = dataToProcess[d];
+                }
             }
-            else {
-                //d += 1;
-            }
-        }
+            else{
+                //Récupération des stats de chaque jours que nous ne voulons pas visualiser
+                for(var j = 1; j <= 12; j++){
+                    for(var i = 1; i <= 31; i++){
+                        if((j < m_min || j > m_max) && (i < dm_min || i > dm_max)){                          
+                            date = parseInt(i) + "/" + parseInt(j) + "/2008";
+                            if(clonePreProcessed[date] != undefined){
+                                for(var pre in clonePreProcessed[date]){
+                                    clonePreProcessed[date][pre].name = pre;
+                                    dataToProcess.push(clone(clonePreProcessed[date][pre]));
+                                    dataToProcess[dataToProcess.length - 1].DelayPerDay = jQuery.extend(true, {}, clonePreProcessed[date][pre].DelayPerDay);
+                                }
+                            }
+                        }
+                    }
+                }
+                for(var j = 1; j <= 12; j++){
+                    for(var i = 1; i <= 31; i++){
+                        if(j < m_min || j > m_max){                          
+                            date = parseInt(i) + "/" + parseInt(j) + "/2008";
+                            if(clonePreProcessed[date] != undefined){
+                                for(var pre in clonePreProcessed[date]){
+                                    clonePreProcessed[date][pre].name = pre;
+                                    dataToProcess.push(clone(clonePreProcessed[date][pre]));
+                                    dataToProcess[dataToProcess.length - 1].DelayPerDay = jQuery.extend(true, {}, clonePreProcessed[date][pre].DelayPerDay);
+                                    dataToProcess[dataToProcess.length - 1].Month = j;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                //Soustraction à la somme des mois des jours dont ne voulons pas
+                for(var month in clonePreProcessedMonth){
+                    for(var carrier in  clonePreProcessedMonth[month]){
+                        clonePreProcessedMonth[month][carrier].name = carrier;
+                        for(var j = 0; j < dataToProcess.length; j++){
+                            if(carrier == dataToProcess[j].name && month == dataToProcess[j].Month - 1){
+                                clonePreProcessedMonth[month][carrier].Distance -= parseInt(dataToProcess[j].Distance);
+                                clonePreProcessedMonth[month][carrier].ActualElapsedTime -= parseInt(dataToProcess[j].ActualElapsedTime);
+                                clonePreProcessedMonth[month][carrier].totalDelay -= parseInt(dataToProcess[j].totalDelay);
+                                clonePreProcessedMonth[month][carrier].CarrierDelay -= parseInt(dataToProcess[j].CarrierDelay);
+                                clonePreProcessedMonth[month][carrier].WeatherDelay -= parseInt(dataToProcess[j].WeatherDelay);
+                                clonePreProcessedMonth[month][carrier].NASDelay -= parseInt(dataToProcess[j].NASDelay);
+                                clonePreProcessedMonth[month][carrier].SecurityDelay -= parseInt(dataToProcess[j].SecurityDelay);
+                                clonePreProcessedMonth[month][carrier].LateAircraftDelay -= parseInt(dataToProcess[j].LateAircraftDelay);
+                                clonePreProcessedMonth[month][carrier].Cancelled -= parseInt(dataToProcess[j].Cancelled);
+                                clonePreProcessedMonth[month][carrier].Diverted -= parseInt(dataToProcess[j].Diverted);
+                                clonePreProcessedMonth[month][carrier].cpt = parseInt(dataToProcess[j].cpt);
 
-        //Moyennes
-        for (var c in companys) {
-            companys[c].totalDelay = parseInt(companys[c].totalDelay) / companys[c].cpt;
-            companys[c].Distance = parseInt(companys[c].Distance) / companys[c].cpt;
-            companys[c].ActualElapsedTime = parseInt(companys[c].ActualElapsedTime) / companys[c].cpt;
-            companys[c].CarrierDelay = parseInt(companys[c].CarrierDelay) / companys[c].cpt;
-            companys[c].WeatherDelay = parseInt(companys[c].WeatherDelay) / companys[c].cpt;
-            companys[c].NASDelay = parseInt(companys[c].NASDelay) / companys[c].cpt;
-            companys[c].SecurityDelay = parseInt(companys[c].SecurityDelay) / companys[c].cpt;
-            companys[c].LateAircraftDelay = parseInt(companys[c].LateAircraftDelay) / companys[c].cpt;
-            companys[c].Cancelled = parseInt(companys[c].Cancelled) / companys[c].cpt;
-            companys[c].Diverted = parseInt(companys[c].Diverted) / companys[c].cpt;
-        }
-
-        for (var c in companys) {
-            json_companys.push({
-                "name": c,
-                "Distance": companys[c].Distance,
-                "ActualElapsedTime": companys[c].ActualElapsedTime,
-                "CarrierDelay": companys[c].CarrierDelay,
-                "WeatherDelay": companys[c].WeatherDelay,
-                "NASDelay": companys[c].NASDelay,
-                "SecurityDelay": companys[c].SecurityDelay,
-                "LateAircraftDelay": companys[c].LateAircraftDelay,
-                "Cancelled": companys[c].Cancelled,
-                "Diverted": companys[c].Diverted,
-                "DelayPerDay": companys[c].DelayPerDay,
-                "totalDelay": companys[c].totalDelay
-            });
-        }
-    }
-
-    function getNewAxis() {
-        //get max pour les axes
-        var max_dist = 0;
-        var max_elapsed = 0;
-        for (var c in companys) {
-            if (parseInt(companys[c].Distance) > max_dist) {
-                max_dist = parseInt(companys[c].Distance);
-            }
-            if (parseInt(companys[c].ActualElapsedTime) > max_elapsed) {
-                max_elapsed = parseInt(companys[c].ActualElapsedTime);
-            }
-        }
-
-        //Trie du tableau pour afficher les grands cercles en premier et ne pas cacher les plus petits
-        json_companys.sort(sortByDelay);
-
-        xScale = d3.scaleLinear().domain([0, max_dist]).range([0, bubble_width]);
-        yScale = d3.scaleLinear().domain([0, max_elapsed]).range([bubble_height, 0]);
-
-        xAxis = d3.axisBottom(xScale);
-        yAxis = d3.axisLeft(yScale);
-    }
-
-    function updateAxis() {
-        var t = d3.transition()
-            .duration(200)
-
-        svg.select(".x")
-            .transition(t)
-            .call(xAxis)
-
-        svg.select(".y")
-            .transition(t)
-            .call(yAxis)
-    }
-
-    function rescaler(val, min_in, max_in, min_out, max_out) {
-        if (val > max_in)
-            max_in = val;
-        if (val < min_in)
-            min_in = val;
-
-        if (min_in == max_in)
-            return val;
-
-        return (max_out - min_out) * (val - min_in + 0.0001) / (max_in - min_in + 0.0001) + min_out;
-    }
-
-    //Trie par retard (decroissant)
-    function sortByDelay(a, b) {
-        return (a.totalDelay > b.totalDelay) ? 0 : 1;
-    }
-
-    function buildPieData(companyName) {
-        var pie_data = [];
-        for (var i in json_companys) {
-            if (json_companys[i].name == companyName) {
-                pie_data = [
-                    {"name": "CarrierDelay", "number": json_companys[i].CarrierDelay},
-                    {"name": "WeatherDelay", "number": json_companys[i].WeatherDelay},
-                    {"name": "NASDelay", "number": json_companys[i].NASDelay},
-                    {"name": "SecurityDelay", "number": json_companys[i].SecurityDelay},
-                    {"name": "LateAircraftDelay", "number": json_companys[i].LateAircraftDelay}
-                ];
-                break;
-            }
-        }
-        return pie_data;
-    }
-
-    function buildLineData(companyName) {
-        var line_data = [];
-        for (var i in json_companys) {
-            if (json_companys[i].name == companyName) {
-                line_data = json_companys[i].DelayPerDay;
-                break;
-            }
-        }
-        return line_data;
-    }
-
-    var sliderMonth = document.getElementById('slider_months');
-    noUiSlider.create(sliderMonth, {
-        start: [1, 12],
-        connect: true,
-        step: 1,
-        orientation: 'horizontal', // 'horizontal' or 'vertical'
-        tooltips: [wNumb({decimals: 0}), wNumb({decimals: 0})],
-        range: {
-            'min': 1,
-            'max': 12
-        },
-        format: wNumb({
-            decimals: 0
-        })
-    });
-
-    var sliderDayMonth = document.getElementById('slider_day_months');
-    noUiSlider.create(sliderDayMonth, {
-        start: [1, 31],
-        connect: true,
-        step: 1,
-        orientation: 'horizontal',
-        tooltips: [wNumb({decimals: 0}), wNumb({decimals: 0})],
-        range: {
-            'min': 1,
-            'max': 31
-        },
-        format: wNumb({
-            decimals: 0
-        })
-    });
-
-    function clean_pie_data(pie_data) {
-        //Nettoyage de pie_data
-        for (var pd in pie_data) {
-            for (var pd in pie_data) {
-                if (parseInt(pie_data[pd].number) == 0) {
-                    pie_data.splice(pd, 1);
-                    break;
+                                    
+                                clonePreProcessedMonth[month][carrier].DelayPerDay = nonintersect(clonePreProcessedMonth[month][carrier].DelayPerDay, dataToProcess[j].DelayPerDay);                                
+                                
+                            }
+                        }
+                    }
+                }
+                var monthsum = {};
+                //Moyennes
+                for (var month in clonePreProcessedMonth) {
+                    for (var carrier in clonePreProcessedMonth[month]) {
+                        if(monthsum[carrier] == undefined)
+                            monthsum[carrier] = {
+                                "name": clonePreProcessedMonth[month][carrier].name,
+                                "Distance": parseInt(clonePreProcessedMonth[month][carrier].Distance),
+                                "ActualElapsedTime": parseInt(clonePreProcessedMonth[month][carrier].ActualElapsedTime),
+                                "CarrierDelay": parseInt(clonePreProcessedMonth[month][carrier].CarrierDelay),
+                                "WeatherDelay": parseInt(clonePreProcessedMonth[month][carrier].WeatherDelay),
+                                "NASDelay": parseInt(clonePreProcessedMonth[month][carrier].NASDelay),
+                                "SecurityDelay": parseInt(clonePreProcessedMonth[month][carrier].SecurityDelay),
+                                "LateAircraftDelay": parseInt(clonePreProcessedMonth[month][carrier].LateAircraftDelay),
+                                "Cancelled": parseInt(clonePreProcessedMonth[month][carrier].Cancelled),
+                                "Diverted": parseInt(clonePreProcessedMonth[month][carrier].Diverted),
+                                "DelayPerDay": clone(clonePreProcessedMonth[month][carrier].DelayPerDay),
+                                "totalDelay": parseInt(clonePreProcessedMonth[month][carrier].totalDelay),
+                                "cpt": parseInt(clonePreProcessedMonth[month][carrier].cpt),
+                            };
+                        else{
+                            monthsum[carrier].totalDelay += parseInt(clonePreProcessedMonth[month][carrier].totalDelay);
+                            monthsum[carrier].Distance += parseInt(clonePreProcessedMonth[month][carrier].Distance);
+                            monthsum[carrier].ActualElapsedTime += parseInt(clonePreProcessedMonth[month][carrier].ActualElapsedTime);
+                            monthsum[carrier].CarrierDelay += parseInt(clonePreProcessedMonth[month][carrier].CarrierDelay);
+                            monthsum[carrier].WeatherDelay += parseInt(clonePreProcessedMonth[month][carrier].WeatherDelay);
+                            monthsum[carrier].NASDelay += parseInt(clonePreProcessedMonth[month][carrier].NASDelay);
+                            monthsum[carrier].SecurityDelay += parseInt(clonePreProcessedMonth[month][carrier].SecurityDelay);
+                            monthsum[carrier].LateAircraftDelay += parseInt(clonePreProcessedMonth[month][carrier].LateAircraftDelay);
+                            monthsum[carrier].Cancelled += parseInt(clonePreProcessedMonth[month][carrier].Cancelled);
+                            monthsum[carrier].Diverted += parseInt(clonePreProcessedMonth[month][carrier].Diverted);
+                            monthsum[carrier].cpt += parseInt(clonePreProcessedMonth[month][carrier].cpt);
+                        }
+                    }
+                }
+                for (var carrier in monthsum) {
+                    monthsum[carrier].totalDelay = parseInt(monthsum[carrier].totalDelay) / monthsum[carrier].cpt;
+                    monthsum[carrier].Distance = parseInt(monthsum[carrier].Distance) / monthsum[carrier].cpt;
+                    monthsum[carrier].ActualElapsedTime = parseInt(monthsum[carrier].ActualElapsedTime) / monthsum[carrier].cpt;
+                    monthsum[carrier].CarrierDelay = parseInt(monthsum[carrier].CarrierDelay) / monthsum[carrier].cpt;
+                    monthsum[carrier].WeatherDelay = parseInt(monthsum[carrier].WeatherDelay) / monthsum[carrier].cpt;
+                    monthsum[carrier].NASDelay = parseInt(monthsum[carrier].NASDelay) / monthsum[carrier].cpt;
+                    monthsum[carrier].SecurityDelay = parseInt(monthsum[carrier].SecurityDelay) / monthsum[carrier].cpt;
+                    monthsum[carrier].LateAircraftDelay = parseInt(monthsum[carrier].LateAircraftDelay) / monthsum[carrier].cpt;
+                    monthsum[carrier].Cancelled = parseInt(monthsum[carrier].Cancelled) / monthsum[carrier].cpt;
+                    monthsum[carrier].Diverted = parseInt(monthsum[carrier].Diverted) / monthsum[carrier].cpt;
+                }
+                //Supprime les données à zéro
+                for (var carrier in monthsum) {
+                    if(monthsum[carrier].totalDelay <= 0 || monthsum[carrier].Distance <= 0 || monthsum[carrier].ActualElapsedTime <= 0)
+                        delete monthsum[carrier];
+                }
+                for (var d in monthsum) {
+                    json_companys.push({
+                        "name": monthsum[d].name,
+                        "Distance": monthsum[d].Distance,
+                        "ActualElapsedTime": monthsum[d].ActualElapsedTime,
+                        "CarrierDelay": monthsum[d].CarrierDelay,
+                        "WeatherDelay": monthsum[d].WeatherDelay,
+                        "NASDelay": monthsum[d].NASDelay,
+                        "SecurityDelay": monthsum[d].SecurityDelay,
+                        "LateAircraftDelay": monthsum[d].LateAircraftDelay,
+                        "Cancelled": monthsum[d].Cancelled,
+                        "Diverted": monthsum[d].Diverted,
+                        "DelayPerDay": clone(monthsum[d].DelayPerDay),
+                        "totalDelay": monthsum[d].totalDelay
+                    });
+                    companys[d] = monthsum[d];
                 }
             }
         }
-        return pie_data;
-    }
 
-    function drawPie(name, pie_data, update = false) {
-        pie_data = clean_pie_data(pie_data);
+        function parseData(data, y_min, y_max, m_min, m_max, dm_min, dm_max) {
+            companys = {};
+            json_companys = [];
+            //Agregation de données par companies
+            for (var d = 0; d < data.length; d += 1) {
+                if (data[d].Month > m_max)
+                    break;
+                if (data[d].Month >= m_min) {
+                    if (data[d].Year >= y_min && data[d].Year <= y_max && data[d].Month >= m_min && data[d].Month <= m_max
+                        && data[d].DayofMonth >= dm_min && data[d].DayofMonth <= dm_max) {
+                        if (companys[data[d].UniqueCarrier] == undefined) {
+                            if (data[d].Distance != "" && data[d].ActualElapsedTime != "") {
+                                var date = undefined;
+                                //Sécu pour ne pas prendre en compte les lignes où les données nous manque
+                                if (data[d].ArrDelay == "")
+                                    data[d].ArrDelay = 0;
+                                if (data[d].CarrierDelay == "")
+                                    data[d].CarrierDelay = 0;
+                                if (data[d].WeatherDelay == "")
+                                    data[d].WeatherDelay = 0;
+                                if (data[d].NASDelay == "")
+                                    data[d].NASDelay = 0;
+                                if (data[d].SecurityDelay == "")
+                                    data[d].SecurityDelay = 0;
+                                if (data[d].LateAircraftDelay == "")
+                                    data[d].LateAircraftDelay = 0;
+                                if (data[d].Cancelled == "")
+                                    data[d].Cancelled = 0;
+                                if (data[d].Diverted == "")
+                                    data[d].Diverted = 0;
+                                if (data[d].DayofMonth != "" && data[d].Month != "" && data[d].Year != "")
+                                    date = data[d].DayofMonth + "/" + data[d].Month + "/" + data[d].Year;
+                                
+                                companys[data[d].UniqueCarrier] = {
+                                    "Distance": parseInt(data[d].Distance),
+                                    "ActualElapsedTime": parseInt(data[d].ActualElapsedTime),
+                                    "totalDelay": parseInt(data[d].ArrDelay),
+                                    "CarrierDelay": parseInt(data[d].CarrierDelay),
+                                    "WeatherDelay": parseInt(data[d].WeatherDelay),
+                                    "NASDelay": parseInt(data[d].NASDelay),
+                                    "SecurityDelay": parseInt(data[d].SecurityDelay),
+                                    "LateAircraftDelay": parseInt(data[d].LateAircraftDelay),
+                                    "Cancelled": parseInt(data[d].Cancelled),
+                                    "Diverted": parseInt(data[d].Cancelled),
+                                    "DelayPerDay": [{"Delay": parseInt(data[d].ArrDelay), "Day": date}],
+                                    "cpt": 1
+                                };
+                            }
+                        }
+                        else {
+                            //Sécu pour ne pas prendre en compte les lignes où les données nous manque
+                            if (data[d].Distance != "" && data[d].ActualElapsedTime != "") {
+                                var date = undefined;
+                                //Rempli les données à 0 la où elles manquent dans le dataset
+                                if (data[d].ArrDelay == "")
+                                    data[d].ArrDelay = 0;
+                                if (data[d].CarrierDelay == "")
+                                    data[d].CarrierDelay = 0;
+                                if (data[d].WeatherDelay == "")
+                                    data[d].WeatherDelay = 0;
+                                if (data[d].NASDelay == "")
+                                    data[d].NASDelay = 0;
+                                if (data[d].SecurityDelay == "")
+                                    data[d].SecurityDelay = 0;
+                                if (data[d].LateAircraftDelay == "")
+                                    data[d].LateAircraftDelay = 0;
+                                if (data[d].Cancelled == "")
+                                    data[d].Cancelled = 0;
+                                if (data[d].Diverted == "")
+                                    data[d].Diverted = 0;
+                                if (data[d].DayofMonth != "" && data[d].Month != "" && data[d].Year != "")
+                                    date = data[d].DayofMonth + "/" + data[d].Month + "/" + data[d].Year;
 
-        //Suppression de l'ancien s'il y en a un
-        d3.selectAll("#pie svg").remove();
+                                companys[data[d].UniqueCarrier].Distance += parseInt(data[d].Distance);
+                                companys[data[d].UniqueCarrier].ActualElapsedTime += parseInt(data[d].ActualElapsedTime);
+                                companys[data[d].UniqueCarrier].totalDelay += parseInt(data[d].ArrDelay);
+                                companys[data[d].UniqueCarrier].CarrierDelay += parseInt(data[d].CarrierDelay);
+                                companys[data[d].UniqueCarrier].WeatherDelay += parseInt(data[d].WeatherDelay);
+                                companys[data[d].UniqueCarrier].NASDelay += parseInt(data[d].NASDelay);
+                                companys[data[d].UniqueCarrier].SecurityDelay += parseInt(data[d].SecurityDelay);
+                                companys[data[d].UniqueCarrier].LateAircraftDelay += parseInt(data[d].LateAircraftDelay);
+                                companys[data[d].UniqueCarrier].Cancelled += parseInt(data[d].Cancelled);
+                                companys[data[d].UniqueCarrier].Diverted += parseInt(data[d].Cancelled);
+                                companys[data[d].UniqueCarrier].DelayPerDay.push({"Delay": parseInt(data[d].ArrDelay), "Day": date});
+                                companys[data[d].UniqueCarrier].cpt += 1;
+                            }
+                        }
+                    }
+                }
+                else {
+                    d += 2;
+                }
+            }
 
-        //Préparation du pie chart
-        var svg = d3.select("#pie").append("svg")
-        /*            .attr("width", pie_width + margin.left + margin.right)
-                    .attr("height", pie_height + margin.top + margin.bottom)*/
-            .attr("viewBox", "60 20 " + (pie_width + margin.left + margin.right) + " " + (pie_height + margin.top + margin.bottom))
-            .call(d3.zoom().on("zoom", zoomFunction))
-            .attr("id", "pie");
+            //Moyennes
+            for (var c in companys) {
+                companys[c].totalDelay = parseInt(companys[c].totalDelay) / companys[c].cpt;
+                companys[c].Distance = parseInt(companys[c].Distance) / companys[c].cpt;
+                companys[c].ActualElapsedTime = parseInt(companys[c].ActualElapsedTime) / companys[c].cpt;
+                companys[c].CarrierDelay = parseInt(companys[c].CarrierDelay) / companys[c].cpt;
+                companys[c].WeatherDelay = parseInt(companys[c].WeatherDelay) / companys[c].cpt;
+                companys[c].NASDelay = parseInt(companys[c].NASDelay) / companys[c].cpt;
+                companys[c].SecurityDelay = parseInt(companys[c].SecurityDelay) / companys[c].cpt;
+                companys[c].LateAircraftDelay = parseInt(companys[c].LateAircraftDelay) / companys[c].cpt;
+                companys[c].Cancelled = parseInt(companys[c].Cancelled) / companys[c].cpt;
+                companys[c].Diverted = parseInt(companys[c].Diverted) / companys[c].cpt;
+            }
 
-        var animationDuration = 400;
-        var t = d3.transition().duration(animationDuration);
+            for (var c in companys) {
+                json_companys.push({
+                    "name": c,
+                    "Distance": companys[c].Distance,
+                    "ActualElapsedTime": companys[c].ActualElapsedTime,
+                    "CarrierDelay": companys[c].CarrierDelay,
+                    "WeatherDelay": companys[c].WeatherDelay,
+                    "NASDelay": companys[c].NASDelay,
+                    "SecurityDelay": companys[c].SecurityDelay,
+                    "LateAircraftDelay": companys[c].LateAircraftDelay,
+                    "Cancelled": companys[c].Cancelled,
+                    "Diverted": companys[c].Diverted,
+                    "DelayPerDay": clone(companys[c].DelayPerDay),
+                    "totalDelay": companys[c].totalDelay
+                });
+            }
+        }
 
-        var g = svg.append("g")
-            .attr("width", pie_width + margin.left + margin.right)
-            .attr("height", pie_height + margin.top + margin.bottom)
-            .call(d3.zoom().on("zoom", zoomFunction))
-            .attr("id", "pie")
-            .attr("transform", "translate(" + parseInt(pie_width) + "," + pie_height / 2 + ")");
+        function getNewAxis() {
+            //get max pour les axes
+            var max_dist = 0;
+            var max_elapsed = 0;
+            for (var c in companys) {
+                if (parseInt(companys[c].Distance) > max_dist) {
+                    max_dist = parseInt(companys[c].Distance);
+                }
+                if (parseInt(companys[c].ActualElapsedTime) > max_elapsed) {
+                    max_elapsed = parseInt(companys[c].ActualElapsedTime);
+                }
+            }
 
-        var color = d3.scaleOrdinal(["#98abc5", "#8a89a6", "#7b6888", "#6b486b", "#a05d56", "#d0743c", "#ff8c00"]);
+            //Trie du tableau pour afficher les grands cercles en premier et ne pas cacher les plus petits
+            json_companys.sort(sortByDelay);
 
-        var pie = d3.pie()
-            .sort(null)
-            .value(function (d) {
-                return d.number;
-            });
+            xScale = d3.scaleLinear().domain([0, max_dist]).range([0, bubble_width]);
+            yScale = d3.scaleLinear().domain([0, max_elapsed]).range([bubble_height, 0]);
 
-        var path = d3.arc()
-            .outerRadius(radius - 10)
-            .innerRadius(0);
+            xAxis = d3.axisBottom(xScale);
+            yAxis = d3.axisLeft(yScale);
+        }
 
-        var label = d3.arc()
-            .outerRadius(radius - 40)
-            .innerRadius(radius - 40);
+        function updateAxis() {
+            var t = d3.transition()
+                .duration(200)
 
-        var pie_arc = g.selectAll(".arc")
-            .data(pie(pie_data))
-            .enter()
-            .append("g")
-            .attr("class", "arc");
-
-        pie_arc.append("path")
-            .attr("d", path)
-            .attr("fill", function (d) {
-                return color(d.data.name);
-            });
-
-        if (!update) {
-            pie_arc.append("text")
+            svg.select(".x")
                 .transition(t)
-                .attr("transform", function (d) {
-                    return "translate(" + label.centroid(d) + ")";
-                })
-                .attr("dy", "0.35em")
-                .text(function (d) {
-                    return d.data.name;
-                });
+                .call(xAxis)
+
+            svg.select(".y")
+                .transition(t)
+                .call(yAxis)
         }
-        else {
-            pie_arc.append("text")
-                .attr("transform", function (d) {
-                    return "translate(" + label.centroid(d) + ")";
-                })
-                .attr("dy", "0.35em")
-                .text(function (d) {
-                    return d.data.name;
-                });
+
+        function rescaler(val, min_in, max_in, min_out, max_out) {
+            if (val > max_in)
+                max_in = val;
+            if (val < min_in)
+                min_in = val;
+
+            if (min_in == max_in)
+                return val;
+
+            return (max_out - min_out) * (val - min_in + 0.0001) / (max_in - min_in + 0.0001) + min_out;
         }
-        oldPieData = pie_data;
-        oldPieChart = pie;
-    }
 
-    function getNumber(matrix) {
-        var column = [];
-        for (var i in matrix) {
-            column.push(matrix[i].number);
+        //Trie par retard (decroissant)
+        function sortByDelay(a, b) {
+            return (a.totalDelay > b.totalDelay) ? 0 : 1;
         }
-        return column;
-    }
 
-    function drawLine(name, line_data, update = false) {
-        //console.log(line_data);
-        d3.selectAll("#line svg").remove();
+        //Trie par retard (decroissant)
+        function sortByDate(a, b) {
+            return (a.Day - b.Day < 0) ? 0 : 1;
+        }
 
-        // parse the date / time
-        var parseTime = d3.timeParse("%d-%b-%y");
+        function buildPieData(companyName) {
+            var pie_data = [];
+            for (var i in json_companys) {
+                if (json_companys[i].name == companyName) {
+                    pie_data = [
+                        { "name": "CarrierDelay", "number": json_companys[i].CarrierDelay },
+                        { "name": "WeatherDelay", "number": json_companys[i].WeatherDelay },
+                        { "name": "NASDelay", "number": json_companys[i].NASDelay },
+                        { "name": "SecurityDelay", "number": json_companys[i].SecurityDelay },
+                        { "name": "LateAircraftDelay", "number": json_companys[i].LateAircraftDelay }
+                    ];
+                    break;
+                }
+            }
+            return pie_data;
+        }
 
-        // set the ranges
-        var x = d3.scaleTime().range([0, width]);
-        var y = d3.scaleLinear().range([height, 0]);
+        function buildLineData(companyName) {
+            var line_data = [];
+            for (var i in json_companys) {
+                if (json_companys[i].name == companyName) {
+                    for(var el in json_companys[i].DelayPerDay){
+                        line_data.push(clone(json_companys[i].DelayPerDay[el]));
+                    }
+                    break;
+                }
+            }
+            for(var d in line_data){
+                line_data[d].cpt = 0;
+            }
+            return line_data;
+        }
 
-        // define the line
-        var valueline = d3.line()
-            .x(function (d) {
-                return x(d.Day);
+        var sliderMonth = document.getElementById('slider_months');
+        noUiSlider.create(sliderMonth, {
+            start: [1, 12],
+            connect: true,
+            step: 1,
+            orientation: 'horizontal', // 'horizontal' or 'vertical'
+            tooltips: [wNumb({ decimals: 0 }), wNumb({ decimals: 0 })],
+            range: {
+                'min': 1,
+                'max': 12
+            },
+            format: wNumb({
+                decimals: 0
             })
-            .y(function (d) {
-                return y(d.Delay);
-            });
-
-        // append the svg obgect to the body of the page
-        // appends a 'group' element to 'svg'
-        // moves the 'group' element to the top left margin
-        var svg = d3.select("#line").append("svg")
-        /*.attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)*/
-            .attr("viewBox", "60 20 " + (pie_width + margin.left + margin.right) + " " + (pie_height + margin.top + margin.bottom))
-            .append("g")
-            .attr("transform",
-                "translate(" + margin.left + "," + margin.top + ")");
-
-
-        // format the data
-        line_data.forEach(function (d) {
-            d.Day = parseTime(d.Day);
-            //console.log(d.Day);
-            d.Delay = +d.Delay;
         });
 
-        // Scale the range of the data
-        x.domain(d3.extent(line_data, function (d) {
-            return d.Day;
-        }));
-        y.domain([0, d3.max(line_data, function (d) {
-            return d.Delay;
-        })]);
+        var sliderDayMonth = document.getElementById('slider_day_months');
+        noUiSlider.create(sliderDayMonth, {
+            start: [1, 31],
+            connect: true,
+            step: 1,
+            orientation: 'horizontal',
+            tooltips: [wNumb({ decimals: 0 }), wNumb({ decimals: 0 })],
+            range: {
+                'min': 1,
+                'max': 31
+            },
+            format: wNumb({
+                decimals: 0
+            })
+        });
 
-        // Add the valueline path.
-        svg.append("path")
-            .data([line_data])
-            .attr("class", "line")
-            .attr("d", valueline);
+        function clean_pie_data(pie_data) {
+            //Nettoyage de pie_data
+            for (var pd in pie_data) {
+                for (var pd in pie_data) {
+                    if (parseInt(pie_data[pd].number) == 0) {
+                        pie_data.splice(pd, 1);
+                        break;
+                    }
+                }
+            }
+            return pie_data;
+        }
 
-        // Add the X Axis
-        svg.append("g")
-            .attr("transform", "translate(0," + height + ")")
-            .call(d3.axisBottom(x));
+        function drawPie(name, pie_data, update = false) {
+            d3.select("#vispi .card .card-action").text("Delay distribution - " + name + " carrier")
+            pie_data = clean_pie_data(pie_data);
 
-        // Add the Y Axis
-        svg.append("g")
-            .call(d3.axisLeft(y));
+            //Suppression de l'ancien s'il y en a un
+            d3.selectAll("#pie svg").remove();
 
-    }
+            //Préparation du pie chart
+            var svg = d3.select("#pie").append("svg")
+                .attr("width", pie_width + margin.left + margin.right)
+                .attr("height", pie_height + margin.top + margin.bottom)
+                .call(d3.zoom().on("zoom", zoomFunction))
+                .attr("id", "pie");
 
-</script>
+            var animationDuration = 400;
+            var t = d3.transition().duration(animationDuration);
 
+            var g = svg.append("g")
+                .attr("width", pie_width + margin.left + margin.right)
+                .attr("height", pie_height + margin.top + margin.bottom)
+                .call(d3.zoom().on("zoom", zoomFunction))
+                .attr("id", "pie")
+                .attr("transform", "translate(" + parseInt(pie_width - 80) + "," + pie_height / 2 + ")");
+
+            var color = d3.scaleOrdinal(["#98abc5", "#8a89a6", "#7b6888", "#6b486b", "#a05d56", "#d0743c", "#ff8c00"]);
+
+            var pie = d3.pie()
+                .sort(null)
+                .value(function (d) { return d.number; });
+
+            var path = d3.arc()
+                .outerRadius(radius - 10)
+                .innerRadius(0);
+
+            var label = d3.arc()
+                .outerRadius(radius - 40)
+                .innerRadius(radius - 40);
+
+            var pie_arc = g.selectAll(".arc")
+                .data(pie(pie_data))
+                .enter()
+                .append("g")
+                .attr("class", "arc");
+
+            pie_arc.append("path")
+                .attr("d", path)
+                .attr("fill", function (d) { return color(d.data.name); });
+
+            if (!update) {
+                pie_arc.append("text")
+                    .transition(t)
+                    .attr("transform", function (d) { return "translate(" + label.centroid(d) + ")"; })
+                    .attr("dy", "0.35em")
+                    .text(function (d) { return d.data.name; });
+            }
+            else {
+                pie_arc.append("text")
+                    .attr("transform", function (d) { return "translate(" + label.centroid(d) + ")"; })
+                    .attr("dy", "0.35em")
+                    .text(function (d) { return d.data.name; });
+            }
+            oldPieData = pie_data;
+            oldPieChart = pie;
+        }
+
+        function getNumber(matrix) {
+            var column = [];
+            for (var i in matrix) {
+                column.push(matrix[i].number);
+            }
+            return column;
+        }
+
+        function agregateDate(line_data){
+            for(var j = 0; j < line_data.length - 1; j++){
+                size = line_data.length - 1;
+                for(var i = 0; i < size; i++){
+                    if(line_data[i].Day - line_data[i + 1].Day == 0){
+                        line_data[i].Delay = parseInt(line_data[i].Delay) + parseInt(line_data[i + 1].Delay);
+                        line_data[i].cpt += 1;
+                        line_data.splice(i + 1, 1);
+                        j = i - 1;
+                        break;
+                    }
+                }
+            }
+            for(var i = 0; i < line_data.length; i++){
+                line_data[i].Delay = parseInt(line_data[i].Delay) / parseInt(line_data[i].cpt + 1);
+            }
+            return line_data;
+        }
+
+        function drawLine(name, line_data, update = false) {
+            d3.selectAll("#line svg").remove();
+            var animationDuration = 400;
+            var t = d3.transition().duration(animationDuration);
+
+            // parse the date / time
+            var parseTime = d3.timeParse("%d/%m/%Y");
+
+            var bisectDate = d3.bisector(function(d) { return d.Day; }).left,
+                formatValue = d3.format(",.2f"),
+                formatCurrency = function(d) { return "$" + formatValue(d); };
+
+            // set the ranges
+            var x = d3.scaleTime().range([0, line_width]);
+            var y = d3.scaleLinear().range([line_height, 0]);
+
+            // define the line
+            var valueline = d3.line()
+                .x(function (d) { return x(d.Day); })
+                .y(function (d) { return y(d.Delay); });
+
+            // append the svg obgect to the body of the page
+            // appends a 'group' element to 'svg'
+            // moves the 'group' element to the top left margin
+            var svg = d3.select("#line").append("svg")
+                .attr("width", "90%")//width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform",
+                "translate(" + margin.left + "," + margin.top + ")");
+
+            // format the data
+            //2008-01-04T23:00:00.000Z
+            line_data.forEach(function (d) {
+                d.Day = parseTime(d.Day);    
+                d.Delay = +d.Delay;
+            });
+
+            line_data.sort(sortByDate);
+            
+            line_date = agregateDate(line_data);
+
+            // Scale the range of the data
+            x.domain(d3.extent(line_data, function (d) { return d.Day; }));
+            y.domain([0, d3.max(line_data, function (d) { return d.Delay; })]);
+
+            // Add the valueline path.
+            var path = svg.append("path")
+                .data([line_data])
+                .attr("class", "line")
+                .attr("stroke", "steelblue")
+                .attr("stroke-width", "2")
+                .attr("fill", "none")
+                .attr("d", valueline);
+
+            var focus = svg.append("g")
+                .attr("class", "focus")
+                .style("display", "none");
+
+            focus.append("circle")
+                .attr("r", 4.5);
+
+            focus.append("text")
+                .attr("x", 9)
+                .attr("dy", ".35em");
+
+            svg.append("rect")
+                .attr("class", "overlay")
+                .attr("opacity", "0.0")
+                .attr("width", width)
+                .attr("height", height)
+                .on("mouseover", function() { focus.style("display", null); })
+                .on("mouseout", function() { focus.style("display", "none"); })
+                .on("mousemove", mousemove);
+
+            // Add the X Axis
+            svg.append("g")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(x));
+
+            // Add the Y Axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            function mousemove() {
+                var x0 = x.invert(d3.mouse(this)[0]),
+                    i = bisectDate(line_data, x0, 1),
+                    d0 = line_data[i - 1],
+                    d1 = line_data[i],
+                    d = x0 - d0.Day > d1.Day - x0 ? d1 : d0;
+                focus.attr("transform", "translate(" + x(d.Day) + "," + y(d.Delay) + ")");
+                focus.select("text").text(parseInt(d.Delay));
+            }
+        }
+
+        function clone(obj) {
+            if (null == obj || "object" != typeof obj) return obj;
+            var copy = obj.constructor();
+            for (var attr in obj) {
+                if (obj.hasOwnProperty(attr)) copy[attr] = obj[attr];
+            }
+            return copy;
+        }
+
+        function nonintersect(a, b) {
+            var res = [];
+            var size = Object.keys(a).length;
+            for(var i = 0; i < size; i++){
+                for(var el in a[i]){
+                    if(Object.keys(b).length > i && [i][el] != b[i][el]){
+                        res.push(a[i]);
+                        break;
+                    }
+                }
+            }
+            return res;
+        }
+    </script>
 </div>
 
 </body>
