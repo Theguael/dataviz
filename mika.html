@@ -139,6 +139,9 @@
                         <div id="pie"
                              style="display: inline-block;position: relative;width: 100%;vertical-align: middle">
                         </div>
+                        <div class="card-action">
+                            Mean Delay per day
+                        </div>
                         <div style="margin-top: -10%;padding: 0" id="line">
                         </div>
                     </div>
@@ -271,12 +274,22 @@
                 .call(yAxis)
                 .select(".domain");
 
+            d3.selectAll("g").append("text")
+            .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+            .attr("transform", "translate("+ -50 +","+(height/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
+            .text("Time fly (mn)");
+
             // Add the x Axis
             dx = svg.append("g")
                 .attr("class", "x axis")
                 .attr("transform", "translate(0," + height + ")")
                 .call(xAxis)
                 .select(".domain");
+
+            d3.selectAll("g").append("text")
+            .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+            .attr("transform", "translate("+ width/2 +"," + 440 +")rotate(0)")  // text is drawn off the screen top left, move down and out and rotate
+            .text("Distance traveled (km)");
 
             for (var c in companys) {
                 names.push(c);
@@ -1269,12 +1282,12 @@
                 .on("mousemove", mousemove);
 
             // Add the X Axis
-            svg.append("g")
+            var ax = svg.append("g")
                 .attr("transform", "translate(0," + height + ")")
                 .call(d3.axisBottom(x));
 
             // Add the Y Axis
-            svg.append("g")
+            var ay = svg.append("g")
                 .call(d3.axisLeft(y));
 
             function mousemove() {
